@@ -25,7 +25,7 @@ img_res=224
 
 train_data=
 validate_data=
-pretrain_path=
+pretrain_path="./weights/model_to_be_pt.pth"
 
 save_dir=
 save_model=True

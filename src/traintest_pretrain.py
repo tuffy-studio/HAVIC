@@ -327,8 +327,8 @@ def train(model, train_loader, test_loader, args):
 
         # 如果每轮都保存模型
         if args.save_model:
-            torch.save(model.state_dict(), f"{exp_dir}/models/model.{epoch}.pth")
-            torch.save(optimizer.state_dict(), f"{exp_dir}/models/model.{epoch}.optim_state.pth")
+            torch.save(model.state_dict(), f"{exp_dir}/models/pt_model.{epoch}.pth")
+            torch.save(optimizer.state_dict(), f"{exp_dir}/models/pt_model.{epoch}.optim_state.pth")
         # ====================================================================================
         #模型验证阶段
         print("Start validation...")
@@ -372,8 +372,8 @@ def train(model, train_loader, test_loader, args):
             best_epoch = epoch
 
         if best_epoch == epoch:
-            torch.save(model.state_dict(), f"{exp_dir}/models/best_model.pth")
-            torch.save(optimizer.state_dict(), f"{exp_dir}/models/best_optim_state.pth")
+            torch.save(model.state_dict(), f"{exp_dir}/models/best_pt_model.pth")
+            torch.save(optimizer.state_dict(), f"{exp_dir}/models/best_pt_optim_state.pth")
 
         # 打印当前学习率
         print(f"Epoch-{epoch} lr: {optimizer.param_groups[0]['lr']:.6e}")

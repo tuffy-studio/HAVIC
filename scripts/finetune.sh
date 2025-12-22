@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==================== Paths ====================
-pretrain_path=
+pretrain_path="./weights/model_to_be_ft.pth"
 tr_data=   
 te_data=    
 save_dir=

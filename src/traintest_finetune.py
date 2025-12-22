@@ -207,7 +207,7 @@ def train(model, train_loader, test_loader, args, mlp_list, verbose=True, classi
             global_step += 1
         
         if args.save_model == True:
-            torch.save(model.state_dict(), "%s/models/model.%d.pth" % (exp_dir, epoch))
+            torch.save(model.state_dict(), "%s/models/ft_model.%d.pth" % (exp_dir, epoch))
         
         #========================================模型验证=================================
         print('start validation')
@@ -287,8 +287,7 @@ def train(model, train_loader, test_loader, args, mlp_list, verbose=True, classi
 
         # 保存模型参数
         if best_epoch == epoch:
-            torch.save(model.state_dict(), "%s/models/best_model.pth" % (exp_dir))
-            torch.save(optimizer.state_dict(), "%s/models/best_optim_state.pth" % (exp_dir))
+            torch.save(model.state_dict(), "%s/models/best_ft_model.pth" % (exp_dir))
             
         print('Epoch {0} learning rate: {1}'.format(epoch, optimizer.param_groups[0]['lr']))
         
