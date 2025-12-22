@@ -7,17 +7,23 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/tuffy-studio/HAVIC/" style="margin-right: 10px;">
+  <a href="https://github.com/tuffy-studio/HAVIC/">
     <img src="https://img.shields.io/badge/Github-HAVIC-black?logo=github">
   </a>
-  <a href="https://huggingface.co/JielunPeng/HAVIC/" style="margin-right: 10px;">
+  &nbsp;&nbsp;&nbsp;
+  <a href="">
+    <img src="https://img.shields.io/badge/CVF Open Access-HAVIC-blue">
+  </a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="https://huggingface.co/JielunPeng/HAVIC/">
     <img src="https://img.shields.io/badge/🤗%20Hugging%20Face-HAVIC-ffd21e">
   </a>
 </p>
 
 
+
 ## Overview
-This repository contains the official implementation of [Leave No Stone Unturned: Uncovering Holistic Audio-Visual Intrinsic Coherence for Deepfake Detection](#). The proposed **HiFi-AVDF** dataset can be downloaded from our [HuggingFace repository](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
+This repository contains the official implementation of [Leave No Stone Unturned: Uncovering Holistic Audio-Visual Intrinsic Coherence for Deepfake Detection](#). The proposed **HiFi-AVDF** dataset is available at [here](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
 
 ![alt text](assets/ptnft.png)
 
