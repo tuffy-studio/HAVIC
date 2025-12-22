@@ -2,16 +2,22 @@
   <h2><b> Leave No Stone Unturned: Uncovering Holistic Audio-Visual Intrinsic Coherence for Deepfake Detection </b></h2>
 </div>
 
-
-
 <div align="center">
 
 </div>
 
+<p align="center">
+  <a href="https://github.com/tuffy-studio/HAVIC/" style="margin-right: 10px;">
+    <img src="https://img.shields.io/badge/Github-HAVIC-black?logo=github">
+  </a>
+  <a href="https://huggingface.co/JielunPeng/HAVIC/" style="margin-right: 10px;">
+    <img src="https://img.shields.io/badge/🤗%20Hugging%20Face-HAVIC-ffd21e">
+  </a>
+</p>
 
 
 ## Overview
-This repository contains the official implementation of **HAVIC**, and our proposed **HiFi-AVDF** dataset. The **HiFi-AVDF** dataset can be downloaded from our [HuggingFace repository](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
+This repository contains the official implementation of [Leave No Stone Unturned: Uncovering Holistic Audio-Visual Intrinsic Coherence for Deepfake Detection](#). The proposed **HiFi-AVDF** dataset can be downloaded from our [HuggingFace repository](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
 
 ![alt text](assets/ptnft.png)
 
@@ -38,7 +44,7 @@ We pre-train the HAVIC on the **LRS2** dataset, which contains only real videos.
 
 We use the **FakeAVCeleb** dataset to finetune the model and evaluate intra-dataset performance. Please follow the instructions on their [official site](https://sites.google.com/view/fakeavcelebdash-lab/) to request and download the dataset.
 
-To evaluate the cross-dataset generalization of the model, we use **KoDF** and **HiFi-AVDF** dataset:
+To further evaluate the cross-dataset generalization of the model, we use **KoDF** and **HiFi-AVDF** dataset:
 
 * **KoDF official page**: [KoDF](https://deepbrainai-research.github.io/kodf/)
 * **HiFi-AVDF download page**: [HiFi-AVDF](#)
@@ -85,10 +91,6 @@ bash swi.sh
 ```
 
 The model outputs a deepfake probability score for each input video.
-
-## Result
-
-We evaluate on two widely-used benchmarks, **FakeAVCeleb** and **KoDF**, as well as on our proposed **HiFi-AVDF** dataset.
 
 
 
