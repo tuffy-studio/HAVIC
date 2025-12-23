@@ -62,7 +62,13 @@ To further evaluate the cross-dataset generalization of the model, we use **KoDF
 ## Training
 
 ### Pretraining
+
+#### Step 1: Data Preprocessing
+
 We pretrain HAVIC using large-scale real videos dataset LRS2 to learn intrinsic audio–visual coherence.
+
+
+#### Step 2: Initialize Weights for Pretraining
 
 Following [AVFF](https://openaccess.thecvf.com/content/CVPR2024/html/Oorloff_AVFF_Audio-Visual_Feature_Fusion_for_Video_Deepfake_Detection_CVPR_2024_paper.html), We initialize the audio and visual encoder–decoders separately with the pretrained weights of **AudioMAE** and **MARLIN**. 
 Download the official pretrained [AudioMAE]() and [MARLIN]() model weights and place them in the `weights/` folder. Then Run the following to get init weights:
@@ -71,9 +77,9 @@ Download the official pretrained [AudioMAE]() and [MARLIN]() model weights and p
 cd weights/
 python initialize_model.py
 ```
-"./weights/model_to_be_ft.pth"
 
- 
+#### Step 3: Start Pretraining
+
 **The pretrained model weights is provided at [here](https://huggingface.co/JielunPeng/HAVIC/).**
 
 ### Finetuning
