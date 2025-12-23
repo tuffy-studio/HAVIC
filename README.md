@@ -113,7 +113,7 @@ Alternatively, you may directly modify the configuration in the provided shell s
 bash swi.sh
 ```
 
-For each input video, the model outputs a deepfake probability score, indicating the likelihood that the video is manipulated (1: fake; 0:real). The prediction results will be saved to  `save_csv_path`.
+For each input video, the model outputs a deepfake probability score, indicating the likelihood that the video is manipulated (1:fake; 0:real). The prediction results will be saved to  `save_csv_path`.
 
 
 ## Acknowledgement
