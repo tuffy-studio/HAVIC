@@ -35,14 +35,14 @@ This repository contains the official implementation of [Leave No Stone Unturned
 conda create -n HAVIC python=3.10 ffmpeg
 conda activate HAVIC
 ```
-### 2. Install Python dependencies
+### 2. Install Python ependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
 
-## Dataset preparation
+## Dataset Download
 
 We pre-train the HAVIC on the **LRS2** dataset, which contains only real videos. Please download LRS2 at [here](https://www.robots.ox.ac.uk/~vgg/data/lip_reading/lrs2.html). Due to copyright we cannot release the data. 
 
@@ -71,22 +71,60 @@ Download the official pretrained [AudioMAE]() and [MARLIN]() model weights and p
 cd weights/
 python initialize_model.py
 ```
-
+"./weights/model_to_be_ft.pth"
 
  
+**The pretrained model weights is provided at [here](https://huggingface.co/JielunPeng/HAVIC/).**
 
 ### Finetuning
 
-After completing pretraining, the pretrained weights should be transferred to the model for finetuning. Run the following to get init weights:
+#### Step 1: Data Preprocessing
+
+First, we randomly split the FakeAVCeleb dataset into **70% training** and **30% testing** sets by running the following command:
 
 ```bash
-cd weights/
+# Make sure you are in the project root directory.
+cd ./video_data_engine/
+python split_FakeAVCeleb_dataset.py \
+    --dataset_root <path to dataset root, e.g., /data/FakeAVCeleb_v1.2> \
+    --training_set_ratio 0.7
+```
+This will produce two CSV files: `training_set.csv` for the training split and `validation_set.csv` for the validation split under the `video_data_engine` directory. Each file contains a single column: `video_path`.
+
+
+Then, we perform preprocessing on the two splits separately to crop the face regions and prepare the corresponding data labels：
+
+```bash
+# Make sure you are in the project root directory.
+cd ./video_data_engine/
+python preprocess_ft_dataset.py \
+    --training_set_csv <path to the training set csv file> \
+    --validation_set_csv <path to the validation set csv file>
+```
+This step produces two new CSV files containing the preprocessed data for training and validation: `processed_training_set.csv` and `processed_training_set.csv`. Each file contains five columns: `video_path,face_crop_folder,audio_label,visual_label,overall_label`.
+
+#### Step 2: Initialize Weights for Finetuning
+
+After pretraining, the pretrained weights need to be transferred to be loaded into the model for finetuning. Please put the pre-trained weights or the weights downloaded from our release into the `./weights` directory, then run the following command to obtain the initial weights for finetuning:
+
+```bash
+# Make sure you are in the project root directory.
+cd ./weights/
 python pt2ft.py
+```
+This step will generate a `model_to_be_ft.pth` file, which contains the initialized model weights for finetuning, and a `newly_added_modules.txt` file, which is a list recording the newly added modules that will be trained at a larger learning rate during the finetuning stage.
+
+#### Step 3: Start Finetuning
+
+After the above steps, you can start the finetuning process by running the following command. Note that you need to configure several settings in the shell script `finetune.sh` in advance, including the path of  **model saving directory**, etc.
+```bash
+# Make sure you are in the project root directory.
+cd ./scripts/
+bash finetune.sh
 ```
 
 
-
-The pretrained and finetuned model weights are provided at [here](https://huggingface.co/JielunPeng/HAVIC/) for convenience and reproducibility. 
+**The finetuned model weights is also provided at [here](https://huggingface.co/JielunPeng/HAVIC/).** 
 
 ## Evaluation and Inference
 Before evaluation or inference, please prepare your fine-tuned model, or download the model provided by us.
@@ -101,7 +139,8 @@ For evaluation, the CSV file should contain two columns: `video_path, overall_la
 Then you can run evaluation or inference using the following commands:
 
 ```bash
-cd evaluation
+# Make sure you are in the project root directory.
+cd ./evaluation/
 python sliding_window_infer.py \
     --csv_file_path <path_to_input_csv> \
     --save_csv_path <path_to_output_csv> \
@@ -109,12 +148,7 @@ python sliding_window_infer.py \
     --mode <evalution or inference>
 ```
 
-Alternatively, you may directly modify the configuration in the provided shell script and run:
-```bash
-bash swi.sh
-```
-
-For each input video, the model outputs a deepfake probability score, indicating the likelihood that the video is manipulated (1:fake; 0:real). The prediction results will be saved to  `save_csv_path`.
+For each input video, the model outputs a deepfake probability score, indicating the likelihood that the video is manipulated (1:fake; 0:real). The prediction results will be saved to  `save_csv_path`, where each row contains a video path, the ground-truth label (if in evaluation mode), and predicted probability.
 
 
 ## Acknowledgement

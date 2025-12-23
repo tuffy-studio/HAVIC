@@ -34,7 +34,7 @@ parser.add_argument('--freqm', help='frequency mask max length', type=int, defau
 parser.add_argument('--timem', help='time mask max length', type=int, default=0)
 
 
-with open("../mlp_list.txt", "r") as f:
+with open("../weights/new_component_list.txt", "r") as f:
     mlp_list = ast.literal_eval(f.read())
 
 args = parser.parse_args()

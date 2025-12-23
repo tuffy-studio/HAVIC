@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 make_video_csv.py
 
@@ -21,7 +20,7 @@ Usage:
 Notes:
     1. `input_dir` should contain videos of the same type, as evaluation assumes
        all videos in one folder share the same labels.
-    2. For datasets with multiple types or labels, run the script separately for each folder.
+    2. For datasets with multiple types or labels, run the script separately for each folder and merge them manually.
     3. Supported video formats: .mp4
     4. All paths in the generated CSV will be absolute paths.
 """

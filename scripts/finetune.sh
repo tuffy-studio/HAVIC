@@ -23,8 +23,8 @@ dataset_std=3.1205
 target_length=1024
 freqm=20
 timem=100
-audio_augment=False
-visual_augment=False
+audio_augment=True
+visual_augment=True
 
 CUDA_CACHE_DISABLE=1 CUDA_VISIBLE_DEVICES=0,1,2,3 \
 python -W ignore ../src/run_finetune.py \
