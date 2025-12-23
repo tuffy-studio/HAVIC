@@ -57,17 +57,28 @@ def parse_args():
     parser.add_argument(
         "--csv_file_path",
         type=str,
+        required=True,
         help="Input CSV file path"
     )
     parser.add_argument(
         "--save_csv_path",
         type=str,
+        required=True,
         help="Output CSV file path"
     )
     parser.add_argument(
-        "--pretrain_path",
+        "--finetune_path",
         type=str,
-        help="Path to pretrained model"
+        required=True,
+        help="Path to finetuned model"
+    )
+
+    parser.add_argument(
+        "--finetune_path",
+        type=str,
+        required=True,
+        default="evalution",
+        help="evalution or inference mode"
     )
 
     # =========================== sliding window hyperparameters ===========================
@@ -98,7 +109,7 @@ if not os.path.exists(save_csv_path):
         writer = csv.writer(f)
         writer.writerow(["video_name", "overall_label", "pred_score"])
 
-pretrain_path = args.pretrain_path
+finetune_path = args.finetune_path
 classify_loss = args.classify_loss
 
 # Hyperparameters for sliding window
@@ -250,7 +261,7 @@ print(f'According to the csv file, there are {len(data)} samples.')
 model = HAVIC_FT()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-state_dict = torch.load(pretrain_path, map_location='cpu')
+state_dict = torch.load(finetune_path, map_location='cpu')
 if not isinstance(model, nn.DataParallel):
     model = nn.DataParallel(model)
 missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False)

@@ -88,16 +88,32 @@ python pt2ft.py
 
 The pretrained and finetuned model weights are provided at [here](https://huggingface.co/JielunPeng/HAVIC/) for convenience and reproducibility. 
 
-## Inference
-For inference the finetuned model. Please put your finetuned model under ./weights, or please download our finetuned weight. Then:
+## Evaluation and Inference
+Before running evaluation or inference, please prepare your fine-tuned model, or download the model provided by us.
+
+To evaluate or run inference on videos, please first organize the input videos into a CSV file. 
+
+For evaluation, the CSV file should contain two columns: `video_path, overall_label`, where `video_path` is the absolute path to the video file, and `overall_label` indicates the ground-truth label of the sample. For inference, the CSV file should contain a single column: `video_path`.
+
+>❗**Note:** No additional video pre-processing is required, as the entire video will be automatically processed using a sliding-window strategy during inference, and the face detection module from FaceX-Zoo is integrated into the pipeline. During execution, a temporary directory named sliding_window_inference_tmp will be created in the current working directory to store intermediate files.
+
+Then you can run evaluation or inference using the following commands:
 
 ```bash
 cd evaluation
+python sliding_window_infer.py \
+    --csv_file_path <path_to_input_csv> \
+    --save_csv_path <path_to_output_csv> \
+    --finetune_path <path_to_finetune_weight> \
+    --mode <evalution or inference>
+```
+
+Alternatively, you may directly modify the configuration in the provided shell script and run:
+```bash
 bash swi.sh
 ```
 
-The model outputs a deepfake probability score for each input video.
-
+For each input video, the model outputs a deepfake probability score, indicating the likelihood that the video is manipulated (1: fake; 0:real). The prediction results will be saved to  `save_csv_path`.
 
 
 ## Acknowledgement
@@ -107,7 +123,7 @@ We appreciate the following github repos for their valuable code and contributio
 - MARLIN (https://github.com/ControlNet/MARLIN)
 - AudioMAE (https://github.com/facebookresearch/AudioMAE)
 - OpenAVFF (https://github.com/JoeLeelyf/OpenAVFF)
-
+- FaceX-Zoo (https://github.com/JDAI-CV/faceX-Zoo)
 
 
 ## Contact
