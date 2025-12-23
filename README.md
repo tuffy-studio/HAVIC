@@ -91,9 +91,9 @@ The pretrained and finetuned model weights are provided at [here](https://huggin
 ## Evaluation and Inference
 Before evaluation or inference, please prepare your fine-tuned model, or download the model provided by us.
 
-To evaluate or run inference on videos, please first organize the input videos into a CSV file. 
+To evaluate or run inference on videos, please first organize the input videos into a CSV file. You may use [our provided code](evaluation/make_label_csv.py) or prepare the CSV using your own method.
 
-For evaluation, the CSV file should contain two columns: `video_path, overall_label`, where `video_path` is the absolute path to the video file, and `overall_label` indicates the ground-truth label of the sample. For inference, the CSV file should contain a single column: `video_path`. You can organize the input videos into a CSV file using our provided [code]. You can organize the input videos into a CSV file using [our provided code](evaluation/make_label_csv.py), or you may use your own method if preferred.
+For evaluation, the CSV file should contain two columns: `video_path, overall_label`, where `video_path` is the absolute path to the video file, and `overall_label` indicates the ground-truth label of the sample. For inference, the CSV file should contain a single column: `video_path`.
 
 
 >❗**Note:** No additional video pre-processing is required, as the entire video will be automatically processed using a sliding-window strategy during evaluation and inference, and the face detection module from FaceX-Zoo is integrated into the pipeline. During execution, a temporary directory named sliding_window_inference_tmp will be created in the current working directory to store intermediate files.
