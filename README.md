@@ -89,7 +89,7 @@ python pt2ft.py
 The pretrained and finetuned model weights are provided at [here](https://huggingface.co/JielunPeng/HAVIC/) for convenience and reproducibility. 
 
 ## Evaluation and Inference
-Before running evaluation or inference, please prepare your fine-tuned model, or download the model provided by us.
+Before evaluation or inference, please prepare your fine-tuned model, or download the model provided by us.
 
 To evaluate or run inference on videos, please first organize the input videos into a CSV file. 
 
