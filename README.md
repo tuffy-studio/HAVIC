@@ -97,7 +97,7 @@ cd ./scripts/
 bash pretrain.sh
 ```
 
-**The pret-rained model weights are provided at [here](https://huggingface.co/JielunPeng/HAVIC/).**
+**The pre-trained model weights are provided at [here](https://huggingface.co/JielunPeng/HAVIC/).**
 
 > Additionally, since our pre-training method incorporates the **Masked Autoencoders (MAE)** to learn self-supervised representations, we implemented visualizations of the masked regions and the reconstructed outputs in [MAE_visualization.py](./MAE_visualization.py). Before running, make sure to configure the necessary settings in the shell script [mae_visual.sh](./mae_visual.sh).
 
