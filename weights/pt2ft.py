@@ -1,5 +1,3 @@
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "5"
 import torch
 from src.models.HAVIC import *
 from collections import OrderedDict  # 有序字典，用于存储模型权重

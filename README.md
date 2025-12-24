@@ -61,26 +61,43 @@ To further evaluate the cross-dataset generalization of the model, we use **KoDF
 
 ## Training
 
-### Pretraining
+### Pre-training
 
 #### Step 1: Data Preprocessing
-
-We pretrain HAVIC using large-scale real videos dataset LRS2 to learn intrinsic audio–visual coherence.
+We perform preprocessing on LRS2 dataset to crop the face regions:
+```bash
+# Make sure you are in the project root directory.
+cd ./video_data_engine/
+python preprocess_pt_dataset.py \
+    --training_set_root <path to the training set root> \
+    --test_set_root <path to the test set root>
+```
+This step produces two CSV files containing the preprocessed data for training and testing: `processed_pt_training_set.csv` and `processed_ft_test_set.csv`. Each file contains five columns: `video_path, face_crop_folder, audio_label, visual_label, overall_label`. The labels will not be used.
 
 
 #### Step 2: Initialize Weights for Pretraining
 
 Following [AVFF](https://openaccess.thecvf.com/content/CVPR2024/html/Oorloff_AVFF_Audio-Visual_Feature_Fusion_for_Video_Deepfake_Detection_CVPR_2024_paper.html), We initialize the audio and visual encoder–decoders separately with the pretrained weights of **AudioMAE** and **MARLIN**. 
-Download the official pretrained [AudioMAE]() and [MARLIN]() model weights and place them in the `weights/` folder. Then Run the following to get init weights:
+Please download the official pretrained [AudioMAE](https://drive.google.com/file/d/1ni_DV4dRf7GxM8k-Eirx71WP9Gg89wwu/view?usp=share_link) and [MARLIN](https://huggingface.co/ControlNet/MARLIN/blob/main/marlin_vit_base_ytf.full.pt) model weights and place them in the `weights/` folder. Then Run the following to get init weights:
 
 ```bash
-cd weights/
-python initialize_model.py
+# Make sure you are in the project root directory.
+cd ./weights/
+python initialize_pretrain_weights.py
 ```
 
-#### Step 3: Start Pretraining
+This step will generate a `model_to_be_pt.pth` file, which contains the initialized model weights for pre-training.
 
-**The pretrained model weights is provided at [here](https://huggingface.co/JielunPeng/HAVIC/).**
+#### Step 3: Start Pre-training
+
+After the above steps, you can start the pre-training process by running the following command. Note that you need to configure several settings in the shell script `pretrain.sh` in advance, including the path of  **model saving directory**, etc.
+```bash
+# Make sure you are in the project root directory.
+cd ./scripts/
+bash pretrain.sh
+```
+
+**The pret-rained model weights are provided at [here](https://huggingface.co/JielunPeng/HAVIC/).**
 
 ### Finetuning
 
@@ -109,16 +126,15 @@ python preprocess_ft_dataset.py \
     --training_set_csv <path to the training_set.csv file> \
     --test_set_csv <path to the test_set.csv file>
 ```
-This step produces two new CSV files containing the preprocessed data for training and validation: `processed_training_set.csv` and `processed_test_set.csv`. Each file contains five columns: `video_path, face_crop_folder, audio_label, visual_label, overall_label`.
+This step produces two new CSV files containing the preprocessed data for training and testing: `processed_training_set.csv` and `processed_test_set.csv`. Each file contains five columns: `video_path, face_crop_folder, audio_label, visual_label, overall_label`.
 
 #### Step 2: Initialize Weights for Finetuning
 
-After pretraining, the pretrained weights need to be transferred to be loaded into the model for finetuning. Please put the pre-trained weights or the weights downloaded from our release into the `./weights` directory, then run the following command to obtain the initial weights for finetuning:
+After pre-training, the pre-trained weights need to be transferred to be loaded into the model for finetuning. Please put the pre-trained weights or the weights downloaded from our release into the `./weights` directory, then run the following command to obtain the initial weights for finetuning:
 
 ```bash
 # Make sure you are in the project root directory.
-cd ./weights/
-python pt2ft.py
+python ./weights/pt2ft.py
 ```
 This step will generate a `model_to_be_ft.pth` file, which contains the initialized model weights for finetuning, and a `newly_added_modules.txt` file, which is a list recording the newly added modules that will be trained at a larger learning rate during the finetuning stage.
 
@@ -132,7 +148,7 @@ bash finetune.sh
 ```
 
 
-**The finetuned model weights is also provided at [here](https://huggingface.co/JielunPeng/HAVIC/).** 
+**The finetuned model weights are also provided at [here](https://huggingface.co/JielunPeng/HAVIC/).** 
 
 ## Evaluation and Inference
 Before evaluation or inference, please prepare your fine-tuned model, or download the model provided by us.
