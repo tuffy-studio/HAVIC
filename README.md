@@ -86,28 +86,30 @@ python initialize_model.py
 
 #### Step 1: Data Preprocessing
 
-First, we randomly split the FakeAVCeleb dataset into **70% training** and **30% testing** sets by running the following command:
+First, we randomly split the FakeAVCeleb dataset into **70% training** and **30% test** sets by running the following command:
 
 ```bash
 # Make sure you are in the project root directory.
 cd ./video_data_engine/
 python split_FakeAVCeleb_dataset.py \
-    --dataset_root <path to dataset root, e.g., /data/FakeAVCeleb_v1.2> \
-    --training_set_ratio 0.7
+    --dataset_root <path to dataset root, e.g., /data/FakeAVCeleb_v1.2>
 ```
-This will produce two CSV files: `training_set.csv` for the training split and `validation_set.csv` for the validation split under the `video_data_engine` directory. Each file contains a single column: `video_path`.
+This will produce two CSV files under the `video_data_engine` directory: `training_set.csv` for the training split and `test_set.csv` for the test split. Each CSV file contains four columns:
+`
+video_path, audio_label, visual_label, overall_label
+`
+. The labels are automatically inferred from the video path.
 
-
-Then, we perform preprocessing on the two splits separately to crop the face regions and prepare the corresponding data labels：
+Then, we perform preprocessing on the two splits to crop the face regions:
 
 ```bash
 # Make sure you are in the project root directory.
 cd ./video_data_engine/
 python preprocess_ft_dataset.py \
-    --training_set_csv <path to the training set csv file> \
-    --validation_set_csv <path to the validation set csv file>
+    --training_set_csv <path to the training_set.csv file> \
+    --test_set_csv <path to the test_set.csv file>
 ```
-This step produces two new CSV files containing the preprocessed data for training and validation: `processed_training_set.csv` and `processed_training_set.csv`. Each file contains five columns: `video_path,face_crop_folder,audio_label,visual_label,overall_label`.
+This step produces two new CSV files containing the preprocessed data for training and validation: `processed_training_set.csv` and `processed_test_set.csv`. Each file contains five columns: `video_path, face_crop_folder, audio_label, visual_label, overall_label`.
 
 #### Step 2: Initialize Weights for Finetuning
 

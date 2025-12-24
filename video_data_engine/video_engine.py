@@ -1,5 +1,7 @@
 # Copyright (c) Jielun Peng, Harbin Institute of Technology.
 # All rights reserved.
+# Reference: https://github.com/JDAI-CV/faceX-Zoo
+
 import faulthandler
 faulthandler.enable()
 import cv2
@@ -26,7 +28,7 @@ import yaml
 from FaceX_Zoo.face_sdk.core.model_loader.face_detection.FaceDetModelLoader import FaceDetModelLoader
 from FaceX_Zoo.face_sdk.core.model_handler.face_detection.FaceDetModelHandler import FaceDetModelHandler
 
-# 收集指定目录下的视频路径并写入CSV文件
+# 收集LRS2目录下的视频路径并写入CSV文件
 def collect_videos_to_csv(root_dir, output_csv, video_extensions=('.mp4', '.avi', '.mov', '.mkv')):
     video_candidates = []
 
@@ -41,9 +43,9 @@ def collect_videos_to_csv(root_dir, output_csv, video_extensions=('.mp4', '.avi'
     # 写入 CSV
     with open(output_csv, mode='w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
-        writer.writerow(['video_name', 'label'])  # 写入表头
+        writer.writerow(['video_path', 'audio_label', 'visual_label', 'overall_label'])  # 写入表头
         for path in video_candidates:
-            writer.writerow([path, '0'])
+            writer.writerow([path, '0', '0', '0'])
 
     print(f"\n共有 {len(video_candidates)} 个的视频，结果已保存到 {output_csv}")
     return output_csv
@@ -83,35 +85,32 @@ def split_videos_from_csv(input_csv, output_csv, output_dir, segment_length=3.20
         header = next(reader)  # 跳过表头
         video_data = []
         for row in reader:
-            # if len(row) != 2:
-            #     print(f"跳过格式错误的行: {row}")
-            #     continue
             video_data.append(row)
 
     # 写入 CSV 表头
     if not os.path.exists(output_csv):
         with open(output_csv, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(["video_name", "label"])
+            writer.writerow(["video_path", "audio_label", "visual_label", "overall_label"])
 
     # 处理每个视频
     with tqdm(total=len(video_data), desc="Processing Videos", unit="video") as pbar:
-        for video_name, target in video_data:
-            if not os.path.exists(video_name):
-                print(f"文件 {video_name} 不存在，跳过...")
+        for video_path, audio_label, visual_label, overall_label in video_data:
+            if not os.path.exists(video_path):
+                print(f"file {video_path} do not exist，pass...")
                 pbar.update(1)
                 continue
 
             # 生成唯一名称
-            relative_path = os.path.relpath(video_name, start=os.path.commonpath([video_name, output_dir]))
+            relative_path = os.path.relpath(video_path, start=os.path.commonpath([video_path, output_dir]))
             safe_name = relative_path.replace('/', '_').replace('\\', '_')
             base_name = os.path.splitext(safe_name)[0]
 
             try:
-                video = VideoFileClip(video_name)
+                video = VideoFileClip(video_path)
                 duration = video.duration
             except Exception as e:
-                print(f"无法读取视频 {video_name}，错误: {e}")
+                print(f"无法读取视频 {video_path}，错误: {e}")
                 pbar.update(1)
                 continue
 
@@ -135,7 +134,7 @@ def split_videos_from_csv(input_csv, output_csv, output_dir, segment_length=3.20
                     # write into csv, don't forget to delete the previous csv when running this function again
                     with open(output_csv, 'a', newline='') as csvfile:
                         writer = csv.writer(csvfile)
-                        writer.writerow([output_file, target])
+                        writer.writerow([output_file, audio_label, visual_label, overall_label])
             video.close()
             pbar.update(1)
 
@@ -149,14 +148,16 @@ def sample_video_uniform_16_from_csv_decord(input_csv, output_csv, frame_output_
     if not os.path.exists(output_csv):
         with open(output_csv, mode='w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['video_folder', 'label'])
+            writer.writerow(['video_folder', 'audio_label', 'visual_label', 'overall_label'])
 
     with open(input_csv, newline='', encoding='utf-8') as csvfile:
         #reader = csv.DictReader(csvfile) # 由于 csv.DictReader 是惰性迭代器，它本身无法预先知道总行数
         reader = list(csv.DictReader(csvfile))
         for row in tqdm(reader, desc="使用Decord均匀采样视频", total=len(reader)):
-            video_path = row['video_name']
-            label = row.get('label', '0')
+            video_path = row['video_path']
+            audio_label = row.get('audio_label', '0')
+            visual_label = row.get('visual_label', '0')
+            overall_label = row.get('overall_label', '0')
             video_name = os.path.splitext(os.path.basename(video_path))[0]
             frame_dir = os.path.join(frame_output_root, video_name)
             
@@ -189,7 +190,7 @@ def sample_video_uniform_16_from_csv_decord(input_csv, output_csv, frame_output_
             # 每处理一个视频就写入一次：视频帧文件夹路径和标签
             with open(output_csv, mode='a', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
-                writer.writerow([frame_dir, label])
+                writer.writerow([frame_dir, audio_label, visual_label, overall_label])
 
     print(f"采样完成，结果已逐步写入到 {output_csv}")
 
@@ -300,14 +301,17 @@ class FaceX_Zoo_FaceCropper:
         if not os.path.exists(output_csv):
             with open(output_csv, mode='w', newline='', encoding='utf-8') as f_out:
                 writer = csv.writer(f_out)
-                writer.writerow(['face_crop_folder', 'label'])
+                writer.writerow(['video_folder', 'audio_label', 'visual_label', 'overall_label'])
+
 
         # 逐行读取输入 CSV
         with open(input_csv, mode='r', encoding='utf-8') as f_in:
             reader = list(csv.DictReader(f_in))
             for row in tqdm(reader, desc="批量提取人脸区域", total=len(reader)):
                 frame_folder = row['video_folder']
-                label = row.get('label', '0')
+                audio_label = row.get('audio_label', '0')
+                visual_label = row.get('visual_label', '0')
+                overall_label = row.get('overall_label', '0')
                 video_name = os.path.basename(frame_folder.rstrip('/\\'))
                 target_folder = os.path.join(save_root, video_name)
 
@@ -337,7 +341,7 @@ class FaceX_Zoo_FaceCropper:
                     # 写入 CSV：已成功处理该视频
                     with open(output_csv, mode='a', newline='', encoding='utf-8') as f_out:
                         writer = csv.writer(f_out)
-                        writer.writerow([target_folder, label])
+                        writer.writerow([target_folder, audio_label, visual_label, overall_label])
 
                 except Exception as e:
                     print(f" 处理失败 {frame_folder}: {e}")
@@ -357,11 +361,13 @@ def generate_matched_csv(video_csv, face_csv, output_csv):
     with open(video_csv, 'r') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            video_path = row['video_name']
+            video_path = row['video_path']
             video_basename = os.path.splitext(os.path.basename(video_path))[0]
             video_info[video_basename] = {
-                'video_name': video_path,
-                'label': row['label']
+                'video_path': video_path,
+                'audio_label': row['audio_label'],
+                'visual_label': row['visual_label'],
+                'overall_label': row['overall_label'],
             }
 
     # 读取人脸路径并尝试匹配
@@ -373,16 +379,58 @@ def generate_matched_csv(video_csv, face_csv, output_csv):
             face_basename = os.path.basename(face_folder)
             if face_basename in video_info:
                 matched_rows.append({
-                    'video_name': video_info[face_basename]['video_name'],
+                    'video_path': video_info[face_basename]['video_path'],
                     'face_crop_folder': face_folder,
-                    'label': video_info[face_basename]['label']
+                    'audio_label': video_info[face_basename]['audio_label'],
+                    'visual_label': video_info[face_basename]['visual_label'],
+                    'overall_label': video_info[face_basename]['overall_label']
                 })
             else:
                 print(f"[跳过] 无法匹配：{face_basename}")
 
     # 写入新 CSV
     with open(output_csv, 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=['video_name', 'face_crop_folder', 'label'])
+        writer = csv.DictWriter(f, fieldnames=['video_path', 'face_crop_folder', 'audio_label', 'visual_label', 'overall_label'])
         writer.writeheader()
         writer.writerows(matched_rows)
     print(f"[完成] 匹配结果保存到 {output_csv}，共 {len(matched_rows)} 条")
+
+# 视频处理流水线函数
+def pipeline_process(csv_path):
+    base_dir = os.path.dirname(csv_path)
+    base_name = os.path.basename(csv_path)
+    prefix = base_name.split('.')[0]
+
+    split_csv = os.path.join(base_dir, f"{prefix}_split.csv")
+    split_save_root = os.path.join(base_dir, f"{prefix}_split")
+
+    print(f"Split videos: {csv_path} -> {split_csv}")
+    split_videos_from_csv(csv_path, split_csv, split_save_root)
+
+    sampled_csv = split_csv.replace("_split.csv", "_split_sampled.csv")
+    sampled_save_root = split_save_root + "_sampled"
+
+    print(f"Sample videos uniformly (16 frames): {split_csv} -> {sampled_csv}")
+    sample_video_uniform_16_from_csv_decord(split_csv, sampled_csv, sampled_save_root)
+    
+    face_cropper = create_face_cropper(scale=1.3)
+
+    face_csv = sampled_csv.replace("_sampled.csv", "_sampled_face.csv")
+    face_save_root = sampled_save_root + "_face"
+
+    print(f"Face cropping: {sampled_csv} -> {face_csv}")
+    face_cropper.process_csv(
+        input_csv=sampled_csv,
+        output_csv=face_csv,
+        save_root=face_save_root
+    )
+
+    # 这里改为给文件名前加 matched_
+    matched_csv = os.path.join(
+        os.path.dirname(face_csv),
+        "matched_" + os.path.basename(face_csv)
+    )
+    print(f"Generate matched CSV: {sampled_csv} + {face_csv} -> {matched_csv}")
+    generate_matched_csv(split_csv, face_csv, matched_csv)
+
+    return matched_csv
