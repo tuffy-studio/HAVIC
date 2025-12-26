@@ -35,94 +35,32 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 def calculate_stats(output, target):
-    """
-    计算 ACC, F1, AP, AUC, TPR@FPR=1% (T1), TPR@FPR=0.1% (T0.1)
-    
-    output: [N, C] 或 [N,1] 或 [N]，模型输出的 logits 或概率
-    target: [N, C] 或 [N,1] 或 [N]，标签或 one-hot
-    """
-    output = np.array(output)
-    target = np.array(target)
-    
-    # 将一维 target 转为二维 shape [N,1] 方便统一处理
-    if target.ndim == 1:
-        target = target[:, None]
-    if output.ndim == 1:
-        output = output[:, None]
+    output = np.array(output).flatten()
+    target = np.array(target).flatten()
 
-    classes_num = output.shape[1]
-    stats = []
+    # pred class
+    preds = (output > 0.5).astype(int)
 
-    # ------------------ 处理二分类单 logit ------------------
-    if classes_num == 1:
-        # 如果 target 本身就是 0/1
-        preds = (output > 0.5).astype(int)
-        acc = metrics.accuracy_score(target, preds)
-        f1 = metrics.f1_score(target, preds)
+    # ACC
+    acc = metrics.accuracy_score(target, preds)
 
-        try:
-            ap = metrics.average_precision_score(target, output)
-            auc = metrics.roc_auc_score(target, output)
-            fpr, tpr, _ = metrics.roc_curve(target, output)
-            t1 = np.interp(0.01, fpr, tpr)
-            t01 = np.interp(0.001, fpr, tpr)
-        except Exception as e:
-            ap, auc, t1, t01 = -1, -1, -1, -1
-            print(f"[Warning] Cannot compute metrics for binary class. Error: {e}")
+    # AP, AUC
+    try:
+        ap = metrics.average_precision_score(target, output)
+        auc = metrics.roc_auc_score(target, output)
+    except Exception as e:
+        print(f"[Warning] Cannot compute metrics: {e}")
+        ap = auc = -1
 
-        stats.append({
-            'AP': ap,
-            'AUC': auc,
-            'ACC': acc,
-            'F1': f1,
-            'T1': t1,
-            'T0.1': t01
-        })
-
-    # ------------------ 多分类或二分类双 logit ------------------
-    else:
-        # 如果 target 是 one-hot，则取 argmax
-        if target.shape[1] > 1:
-            y_true = np.argmax(target, axis=1)
-        else:
-            y_true = target[:,0]
-
-        y_pred = np.argmax(output, axis=1)
-        acc = metrics.accuracy_score(y_true, y_pred)
-        f1 = metrics.f1_score(y_true, y_pred, average='macro')
-
-        for k in range(classes_num):
-            try:
-                # 如果 target 是 one-hot 或单标签
-                if target.shape[1] > 1:
-                    ap = metrics.average_precision_score(target[:, k], output[:, k])
-                    auc = metrics.roc_auc_score(target[:, k], output[:, k])
-                    fpr, tpr, _ = metrics.roc_curve(target[:, k], output[:, k])
-                else:
-                    # 将单标签转成二分类格式
-                    binary_true = (y_true == k).astype(int)
-                    ap = metrics.average_precision_score(binary_true, output[:, k])
-                    auc = metrics.roc_auc_score(binary_true, output[:, k])
-                    fpr, tpr, _ = metrics.roc_curve(binary_true, output[:, k])
-
-                t1 = np.interp(0.01, fpr, tpr)
-                t01 = np.interp(0.001, fpr, tpr)
-            except Exception as e:
-                ap, auc, t1, t01 = -1, -1, -1, -1
-                print(f"[Warning] Class {k} cannot compute metrics. Error: {e}")
-
-            stats.append({
-                'AP': ap,
-                'AUC': auc,
-                'ACC': acc,
-                'F1': f1,
-                'T1': t1,
-                'T0.1': t01
-            })
+    stats = {
+        'ACC': acc,
+        'AP': ap,
+        'AUC': auc
+    }
 
     return stats
 
-def plot_classwise_logits_histogram_bce(output, labels, normalize=False, save_path=None):
+def plot_classwise_logits_histogram(output, labels, normalize=False, save_path=None):
     """
     绘制两类样本的 logits 分布直方图
 
@@ -161,46 +99,6 @@ def plot_classwise_logits_histogram_bce(output, labels, normalize=False, save_pa
     else:
         plt.show()
 
-def plot_classwise_logits_histogram(output, labels, normalize=False, save_path=None):
-    """
-    绘制两类样本的 logits 分布直方图
-
-    参数:
-        output: Tensor，形状 [N, 2]，模型输出的 logits
-        labels: Tensor，形状 [N]，对应的标签（0 或 1）
-        normalize: 是否对 logits 进行 min-max 归一化
-        save_path: 如果提供路径，则保存图片
-    """
-    output = output.detach().cpu()
-    labels = labels.detach().cpu()
-    
-    # 只取每个样本属于其真实类别的那个 logit 值
-    # 即对于类别 0，取 output[i, 0]，类别 1，取 output[i, 1]
-    logit_values = output[:, 1]  # 所有样本的 class 1 logits
-
-    if normalize:
-        min_val = logit_values.min()
-        max_val = logit_values.max()
-        logit_values = (logit_values - min_val) / (max_val - min_val + 1e-8)
-
-    class0_logits = logit_values[labels == 0].numpy()
-    class1_logits = logit_values[labels == 1].numpy()
-
-    # 画图
-    plt.figure(figsize=(7, 4))
-    plt.hist(class0_logits, bins=80, alpha=0.6, label='Class 0', color='blue', edgecolor='black')
-    plt.hist(class1_logits, bins=80, alpha=0.6, label='Class 1', color='red', edgecolor='black')
-    plt.xlabel('Logit Value' + (' (normalized)' if normalize else ''))
-    plt.ylabel('Number of Samples')
-    plt.title('Logits Distribution by Class')
-    plt.legend()
-    plt.grid(True)
-
-    if save_path:
-        plt.savefig(save_path, dpi=300)
-        print(f"类别分布图已保存至: {save_path}")
-    else:
-        plt.show()
 
 def plot_precision_recall_curve(y_true, y_scores, class_name, save_dir):
     """

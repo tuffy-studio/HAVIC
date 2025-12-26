@@ -34,7 +34,6 @@ print('\n' + '=' * 50)
 print("Unexpected keys:")
 print(unexpected)
 
-#state_dict = ft_model.module.state_dict()
 state_dict = ft_model.state_dict()
 
 torch.save(state_dict, output_weight_path)

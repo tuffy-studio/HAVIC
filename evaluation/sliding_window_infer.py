@@ -363,10 +363,10 @@ def process_single_video(index, row, mode):
         print(f"{video_path}:\n video_batch {video_batch.shape}, audio_batch {audio_batch.shape}")
 
         # ---------------- 2.3.4 model forward ----------------
-        with torch.inference_mode(), torch.autocast("cuda"):
+        with torch.inference_mode(): # to accelerate inference, you can add torch.autocast("cuda")
             audio_outputs, visual_outputs, output = model(audio=audio_batch, video=video_batch)
-            sigmoid_output = torch.sigmoid(output)
-        sample_level_pred = sigmoid_output.detach().cpu().mean(dim=0)
+
+        sample_level_pred = output.detach().cpu().mean(dim=0)
 
         results["overall_pred"] = sample_level_pred.unsqueeze(0)
 
@@ -433,15 +433,10 @@ if mode == "evaluation":
     overall_output = torch.tensor(all_overall_pred, dtype=torch.float32)  # [N,1]
     overall_label  = torch.tensor(all_overall_label, dtype=torch.float32) # [N,1]
 
-    plot_classwise_logits_histogram_bce(
-        overall_output, overall_label, normalize=False,
-        save_path="./sliding_window_inference_logs/classwise_logits.png"
-    )
     overall_label = overall_label.unsqueeze(1)
     stats = calculate_stats(torch.sigmoid(overall_output).cpu(), overall_label.cpu())
 
-    for i, s in enumerate(stats):
-        print(f"ACC: {s['ACC']:.4f}, AP: {s['AP']:.4f}, AUC: {s['AUC']:.4f}, T1: {s['T1']:.4f}, T0.1: {s['T0.1']:.4f}, f1: {s['F1']:.4f}")
+    print(f"ACC: {stats['ACC']:.4f}, AP: {stats['AP']:.4f}, AUC: {stats['AUC']:.4f}")
 
 
 

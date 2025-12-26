@@ -31,7 +31,6 @@ fastjsonschema==2.21.1
 ffmpeg-python==0.2.0
 filelock==3.16.1
 filterpy==1.4.5
-flask==3.0.3
 flatbuffers==24.12.23
 fonttools==4.55.3
 fqdn==1.5.1
