@@ -41,6 +41,12 @@ conda activate HAVIC
 pip install -r requirements.txt
 ```
 
+<!-- > ❗**Note:** If you are in mainland China, you can use the following commands to speed up Python package installation:
+
+```bash
+pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
+``` -->
+
 
 ## Dataset Download
 

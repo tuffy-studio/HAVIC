@@ -148,7 +148,7 @@ def sample_video_uniform_16_from_csv_decord(input_csv, output_csv, frame_output_
     if not os.path.exists(output_csv):
         with open(output_csv, mode='w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(['video_folder', 'audio_label', 'visual_label', 'overall_label'])
+            writer.writerow(['face_crop_folder', 'audio_label', 'visual_label', 'overall_label'])
 
     with open(input_csv, newline='', encoding='utf-8') as csvfile:
         #reader = csv.DictReader(csvfile) # 由于 csv.DictReader 是惰性迭代器，它本身无法预先知道总行数
@@ -301,14 +301,14 @@ class FaceX_Zoo_FaceCropper:
         if not os.path.exists(output_csv):
             with open(output_csv, mode='w', newline='', encoding='utf-8') as f_out:
                 writer = csv.writer(f_out)
-                writer.writerow(['video_folder', 'audio_label', 'visual_label', 'overall_label'])
+                writer.writerow(['face_crop_folder', 'audio_label', 'visual_label', 'overall_label'])
 
 
         # 逐行读取输入 CSV
         with open(input_csv, mode='r', encoding='utf-8') as f_in:
             reader = list(csv.DictReader(f_in))
             for row in tqdm(reader, desc="批量提取人脸区域", total=len(reader)):
-                frame_folder = row['video_folder']
+                frame_folder = row['face_crop_folder']
                 audio_label = row.get('audio_label', '0')
                 visual_label = row.get('visual_label', '0')
                 overall_label = row.get('overall_label', '0')

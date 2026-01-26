@@ -90,10 +90,6 @@ def train(model, train_loader, test_loader, args, mlp_list, verbose=True, classi
     # BCE loss
     BCE_loss_fn = nn.BCEWithLogitsLoss(reduction='none') 
 
-    # CE loss
-    class_weights = torch.tensor([1.0, 1.0]).to(device)
-    CE_loss_fn = nn.CrossEntropyLoss(weight=class_weights)#, label_smoothing=0.1)
-    
     print("current #steps=%s, #epochs=%s" % (global_step, epoch))
     print("start training...") 
     model.train()
@@ -139,18 +135,12 @@ def train(model, train_loader, test_loader, args, mlp_list, verbose=True, classi
             with autocast(enabled=use_amp):
                 audio_outputs, video_outputs, outputs = model(a_input, v_input)
                     
-                if classify_loss == "BCE":
-                    audio_weights = get_bce_weights(audio_labels.to(device), neg_weight=1.0)
-                    video_weights = get_bce_weights(video_labels.to(device), neg_weight=1.0)
-                    weights = get_bce_weights(labels.to(device), neg_weight=1.0)
-                    audio_loss = (BCE_loss_fn(audio_outputs, audio_labels.unsqueeze(-1)) * audio_weights).mean()
-                    video_loss = (BCE_loss_fn(video_outputs, video_labels.unsqueeze(-1)) * video_weights).mean()
-                    av_loss = (BCE_loss_fn(outputs, labels.unsqueeze(-1)) * weights).mean()
-                
-                else: # CE loss
-                    av_loss = CE_loss_fn(outputs, labels) # CE loss
-                    audio_loss = CE_loss_fn(audio_outputs, audio_labels)
-                    video_loss = CE_loss_fn(video_outputs, video_labels)
+                audio_weights = get_bce_weights(audio_labels.to(device), neg_weight=1.0)
+                video_weights = get_bce_weights(video_labels.to(device), neg_weight=1.0)
+                weights = get_bce_weights(labels.to(device), neg_weight=1.0)
+                audio_loss = (BCE_loss_fn(audio_outputs, audio_labels.unsqueeze(-1)) * audio_weights).mean()
+                video_loss = (BCE_loss_fn(video_outputs, video_labels.unsqueeze(-1)) * video_weights).mean()
+                av_loss = (BCE_loss_fn(outputs, labels.unsqueeze(-1)) * weights).mean()
 
                 loss = av_loss + audio_loss + video_loss
                 
@@ -176,7 +166,6 @@ def train(model, train_loader, test_loader, args, mlp_list, verbose=True, classi
 
             optimizer.zero_grad()
             
-            # loss_av is the main loss
             loss_meter.update(loss.item(), B)
             av_loss_meter.update(av_loss.item(), B)
             a_loss_meter.update(audio_loss.item(), B)
