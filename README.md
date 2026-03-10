@@ -29,7 +29,7 @@ This repository contains the official implementation of [Leave No Stone Unturned
 
 ## News
 
-- **[Dec 2025]** Pre-training and finetuning codes are released.
+- **[Dec 2025]** Pre-training, finetuning, evaluation and inference code are released.
 - **[Feb 2026]** Our paper is accepted at CVPR 2026 Findings.
 - **[Coming Soon]** We will release the model weights, and the HiFi-AVDF dataset ASAP. 
 - **⭐ Star us** to get notified when the weights and dataset are released!
