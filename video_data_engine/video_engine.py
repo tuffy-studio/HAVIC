@@ -308,7 +308,7 @@ class FaceX_Zoo_FaceCropper:
         with open(input_csv, mode='r', encoding='utf-8') as f_in:
             reader = list(csv.DictReader(f_in))
             for row in tqdm(reader, desc="批量提取人脸区域", total=len(reader)):
-                frame_folder = row['face_crop_folder']
+                frame_folder = row['video_folder']
                 audio_label = row.get('audio_label', '0')
                 visual_label = row.get('visual_label', '0')
                 overall_label = row.get('overall_label', '0')
