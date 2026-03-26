@@ -7,12 +7,11 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/tuffy-studio/HAVIC/">
     <img src="https://img.shields.io/badge/Github-HAVIC-black?logo=github">
   </a>
   &nbsp;&nbsp;&nbsp;
-  <a href="">
-    <img src="https://img.shields.io/badge/CVF Open Access-HAVIC-blue">
+  <a href="https://arxiv.org/abs/2603.23960">
+    <img src="https://img.shields.io/badge/arXiv-2603.23960-b31b1b.svg?logo=arXiv">
   </a>
   &nbsp;&nbsp;&nbsp;
   <a href="https://huggingface.co/JielunPeng/HAVIC/">
@@ -21,18 +20,20 @@
 </p>
 
 
-
-## Overview
-This repository contains the official implementation of [Leave No Stone Unturned: Uncovering Holistic Audio-Visual Intrinsic Coherence for Deepfake Detection](#). The proposed **HiFi-AVDF** dataset is available at [here](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
-
-![alt text](assets/ptnft.png)
-
 ## News
 
 - **[Dec 2025]** Pre-training, finetuning, evaluation and inference code are released.
 - **[Feb 2026]** Our paper is accepted at CVPR 2026 Findings.
+- **[Mar 2026]** Our paper is Our paper is available on arXiv: [https://arxiv.org/abs/2603.23960](https://arxiv.org/abs/2603.23960).
 - **[Coming Soon]** We will release the model weights, and the HiFi-AVDF dataset ASAP. 
 - **⭐ Star us** to get notified when the weights and dataset are released!
+
+## Overview
+This repository contains the official implementation of [Leave No Stone Unturned: Uncovering Holistic Audio-Visual Intrinsic Coherence for Deepfake Detection](https://arxiv.org/abs/2603.23960). The proposed **HiFi-AVDF** dataset is available at [here](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
+
+![alt text](assets/ptnft.png)
+
+
 
 ## Requirements
 
