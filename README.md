@@ -29,7 +29,7 @@
 - **⭐ Star us** to get notified when the weights and dataset are released!
 
 ## Overview
-This repository contains the official implementation of [Leave No Stone Unturned: Uncovering Holistic Audio-Visual Intrinsic Coherence for Deepfake Detection](https://arxiv.org/abs/2603.23960). The proposed **HiFi-AVDF** dataset is available at [here](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
+This repository contains the official implementation of [Leave No Stone Unturned: Uncovering Holistic Audio-Visual Intrinsic Coherence for Deepfake Detection](https://arxiv.org/abs/2603.23960). The proposed **HiFi-AVDF** dataset will be available [here](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
 
 ![alt text](assets/ptnft.png)
 
@@ -58,7 +58,7 @@ pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 
 ## Dataset Download
 
-We pre-train the HAVIC on the **LRS2** dataset, which contains only real videos. Please download LRS2 at [here](https://www.robots.ox.ac.uk/~vgg/data/lip_reading/lrs2.html). Due to copyright we cannot release the data. 
+We pre-train the HAVIC on the **LRS2** dataset, which contains only real videos. Please download LRS2 [here](https://www.robots.ox.ac.uk/~vgg/data/lip_reading/lrs2.html). Due to copyright we cannot release the data. 
 
 
 
@@ -111,7 +111,7 @@ cd ./scripts/
 bash pretrain.sh
 ```
 
-**The pre-trained model weights are provided at [here](https://huggingface.co/JielunPeng/HAVIC/).**
+**The pre-trained model weights will be provided [here](https://huggingface.co/JielunPeng/HAVIC/).**
 
 > Additionally, since our pre-training method incorporates the **Masked Autoencoders (MAE)** to learn self-supervised representations, we implemented visualizations of the masked regions and the reconstructed outputs in [MAE_visualization.py](./MAE_visualization.py). Before running, make sure to configure the necessary settings in the shell script [mae_visual.sh](./mae_visual.sh).
 
@@ -166,7 +166,7 @@ bash finetune.sh
 ```
 
 
-**The finetuned model weights are also provided at [here](https://huggingface.co/JielunPeng/HAVIC/).** 
+**The finetuned model weights will be also provided [here](https://huggingface.co/JielunPeng/HAVIC/).** 
 
 ## Evaluation and Inference
 Before evaluation or inference, please prepare your fine-tuned model, or download the model provided by us.
