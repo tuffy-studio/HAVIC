@@ -213,10 +213,3 @@ If you have any questions or concerns, please contact:
 📧 **[25s003052@stu.hit.edu.cn](25s003052@stu.hit.edu.cn)**
 
 or feel free to submit an issue in this repository.
-
-## Citation
-
-If you find this work useful, please cite:
-```bibtex
-
-```
