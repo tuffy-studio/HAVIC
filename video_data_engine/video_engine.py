@@ -28,8 +28,8 @@ import yaml
 from FaceX_Zoo.face_sdk.core.model_loader.face_detection.FaceDetModelLoader import FaceDetModelLoader
 from FaceX_Zoo.face_sdk.core.model_handler.face_detection.FaceDetModelHandler import FaceDetModelHandler
 
-# 收集LRS2目录下的视频路径并写入CSV文件
-def collect_videos_to_csv(root_dir, output_csv, video_extensions=('.mp4', '.avi', '.mov', '.mkv')):
+# 收集指定目录下的视频路径并写入CSV文件
+def collect_videos_to_csv(root_dir, output_csv, video_extensions=('.mp4', '.avi', '.mov', '.mkv'), audio_label='0', visual_label='0', overall_label='0'):
     video_candidates = []
 
     # 先收集所有候选视频路径
@@ -43,12 +43,13 @@ def collect_videos_to_csv(root_dir, output_csv, video_extensions=('.mp4', '.avi'
     # 写入 CSV
     with open(output_csv, mode='w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
-        writer.writerow(['video_path', 'audio_label', 'visual_label', 'overall_label'])  # 写入表头
+        writer.writerow(['video_name', 'audio_label', 'visual_label', 'overall_label'])  # 写入表头
         for path in video_candidates:
-            writer.writerow([path, '0', '0', '0'])
+            writer.writerow([path, audio_label, visual_label, overall_label])
 
     print(f"\n共有 {len(video_candidates)} 个的视频，结果已保存到 {output_csv}")
     return output_csv
+
 
 # 将单个视频裁剪为3.2s（如果超过了3.2s的话）
 def split_video(input_file, segment_length=3.2):

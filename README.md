@@ -83,10 +83,11 @@ We perform preprocessing on LRS2 dataset to crop the face regions:
 # Make sure you are in the project root directory.
 cd ./video_data_engine/
 python preprocess_pt_dataset.py \
-    --training_set_root <path to the training set root> \
-    --test_set_root <path to the test set root>
+    --train_set_dir <path to the training set root> \
+    --test_set_dir <path to the test set root> \
+    --save_dir <the root directory to save processed videos and csvs>
 ```
-This step produces two CSV files containing the preprocessed data for training and testing: `processed_pt_training_set.csv` and `processed_ft_test_set.csv`. Each file contains five columns: `video_path, face_crop_folder, audio_label, visual_label, overall_label`. The labels will not be used.
+"This step generates two CSV files with preprocessed training and testing data, saved under the specified `save_dir`. Each file contains five columns: `video_path, face_crop_folder, audio_label, visual_label, overall_label`. The labels will not be used.
 
 
 #### Step 2: Initialize Weights for Pretraining
@@ -212,3 +213,10 @@ If you have any questions or concerns, please contact:
 📧 **[25s003052@stu.hit.edu.cn](25s003052@stu.hit.edu.cn)**
 
 or feel free to submit an issue in this repository.
+
+## Citation
+
+If you find this work useful, please cite:
+```bibtex
+
+```
