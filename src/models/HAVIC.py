@@ -40,9 +40,6 @@ class HAVIC_PT(nn.Module):
         self.patch_size = patch_size
         self.n_frames = n_frames
 
-        self.enc_dec_proj = nn.Linear(encoder_embed_dim, decoder_embed_dim, bias=False)
-
-
         self.audio_encoder = AudioEncoder(
             audio_length=audio_length,
             mel_bins=mel_bins,
@@ -433,7 +430,6 @@ class HAVIC_PT(nn.Module):
         _, audio_9 = self.split_cls_patch_tokens(audio_9, n_segments=8)
         
         # 视频重建
-        video_inter = self.enc_dec_proj(video_inter)
         v1,v2,v3,video_recon = self.visual_decoder(video_inter, video_3, video_6, video_9, video_emb, ids_keep_video = ids_keep_video) # (B, 1568, 768) --> (B, 1568, 16*16*3*2)
 
         video_recon = self.visual_decoder.unpatch_to_img(video_recon) # (B, 1568, 16*16*3*2) --> (B, 3, 16, 224, 224)
@@ -656,7 +652,6 @@ class HAVIC_FT(nn.Module):
 
         return audio_real_or_fake, video_real_or_fake, overall_real_or_fake
 
-
 class LearnableWeightedPool(nn.Module):
     def __init__(self, num_layers: int):
         super().__init__()
@@ -679,7 +674,6 @@ class LearnableWeightedPool(nn.Module):
             raise ValueError(f"Unsupported input shape: {features.shape}")
         return weighted
 
-
 def init_weights(m):
     """
     初始化权重的通用函数：
@@ -691,7 +685,6 @@ def init_weights(m):
         if m.bias is not None:
             init.zeros_(m.bias)
 
-# 可变长的MLP
 class FlexibleMLP(nn.Module):
     def __init__(self, input_size, hidden_sizes, num_classes, drop_rates=None, activation_fn=nn.ReLU):
         """

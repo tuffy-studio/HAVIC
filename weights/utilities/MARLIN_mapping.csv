@@ -1,0 +1,9 @@
+original,target
+patch_embedding,VisualEncoder.patch_embedding
+encoder.blocks,VisualEncoder.blocks
+encoder.norm,VisualEncoder.norm
+decoder.norm,VisualDecoder.norm
+decoder.mask_token 
+decoder.blocks,VisualDecoder.blocks
+enc_dec_proj,VisualDecoder.enc_dec_proj
+decoder.head,VisualDecoder.head

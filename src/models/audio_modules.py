@@ -118,7 +118,6 @@ class AudioEncoder(nn.Module):
         self.modality = nn.Parameter(torch.zeros(1, 1, embed_dim))
         self.norm = nn.LayerNorm(embed_dim)
 
-        # 对应每个时间段的 learnable token
         self.cls_tokens = nn.Parameter(torch.zeros(1, 8, embed_dim), requires_grad=True)
 
         self.time_pos_embed = nn.Parameter(torch.zeros(1, 8, embed_dim), requires_grad=False)  # 非学习参数
@@ -393,17 +392,13 @@ class AudioDecoder(nn.Module):
 
         return x_recover
 
-    def forward(self, audio, audio_3=None, audio_6=None, audio_9=None, audio_12=None, ids_keep_audio=None, use_hierarchical=None):
-
-        if use_hierarchical is None:
-            use_hierarchical = self.use_hierarchical
-
+    def forward(self, audio, audio_3=None, audio_6=None, audio_9=None, audio_12=None, ids_keep_audio=None):
         x = self.decoder_embed(audio)
         x = self.recover_from_mask(x, ids_keep_audio, self.mask_token)
         x = x + self.decoder_modality
         x = x + self.decoder_pos_embed
 
-        if use_hierarchical:
+        if self.use_hierarchical:
             i = 1
             for blk in self.blocks:
                 if i == 1:

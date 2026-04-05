@@ -8,84 +8,164 @@ from traintest_pretrain import train
 
 parser = argparse.ArgumentParser(description='HAVIC Pretraining Script')
 
-# --- Data ---
-parser.add_argument('--data-train', type=str, required=True, help='Path to the CSV file listing training videos and audio.')
-parser.add_argument('--data-val', type=str, required=True, help='Path to the CSV file listing validation videos and audio.')
-parser.add_argument('--target_length', default=1024, type=int, help='Target length for audio features (number of frames).')
-parser.add_argument('--dataset_mean', default=-5.081, type=float, help='Mean value for audio feature normalization.')
-parser.add_argument('--dataset_std', default=4.4849, type=float, help='Standard deviation for audio feature normalization.')
-parser.add_argument('--im_res', default=224, type=int, help='Resolution of input images (height and width).')
+# =======================
+# Training Hyperparameters
+# =======================
+parser.add_argument('--weights_path', default=None, type=str,
+                    help='Path to pretrained weights for initialization.')
 
-# --- DataLoader ---
-parser.add_argument('--batch_size', default=112, type=int, help='Number of samples per batch.')
-parser.add_argument('--num_workers', default=4, type=int, help='Number of subprocesses for data loading.')
+parser.add_argument('--if_use_amp', action='store_true',
+                    help='Enable mixed precision training.')
 
-# --- Optimizer & Scheduler ---
-parser.add_argument('--max_lr', default=0.00015, type=float, help='Maximum learning rate for AdamW optimizer.')
-parser.add_argument('--weight_decay', default=0.05, type=float, help='Weight decay for AdamW optimizer.')
-parser.add_argument('--beta_1', default=0.95, type=float, help='Beta1 parameter for AdamW optimizer.')
-parser.add_argument('--beta_2', default=0.999, type=float, help='Beta2 parameter for AdamW optimizer.')
-parser.add_argument('--total_epochs', default=200, type=int, help='Total number of training epochs.')
-parser.add_argument('--warm_up_ratio', default=0.1, type=float, help='Proportion of total steps used for learning rate warm-up.')
+parser.add_argument('--total_epochs', default=200, type=int)
+parser.add_argument('--warm_up_ratio', default=0.1, type=float)
+parser.add_argument('--accumulation_steps', default=1, type=int)
 
-# --- Resume Training ---
-parser.add_argument('--restart_epoch', default=1, type=int, help='Epoch number to resume training from (if restarting).')
-parser.add_argument('--restart_step', default=1, type=int, help='Global step number to resume training from (if restarting).')
-parser.add_argument('--if_restart_train', action='store_true', help='Restart training from a checkpoint.')
-parser.add_argument('--saved_optimizer_path', default="", type=str, help='Path to a saved optimizer state (for resuming training).')
+# ======================
+# Data
+# ======================
+parser.add_argument('--data_train', type=str, required=True,
+                    help='Path to training CSV file.')
+parser.add_argument('--data_val', type=str, required=True,
+                    help='Path to validation CSV file.')
 
-# --- Model & Checkpoint ---
-parser.add_argument('--pretrain_path', default=None, type=str, help='Path to a pretrained model to initialize weights.')
-parser.add_argument('--save_model', action='store_true', help='Save model checkpoints during training.')
-parser.add_argument('--save-dir', default='checkpoints', type=str, help='Directory to save model checkpoints and logs.')
+parser.add_argument('--target_length', default=1024, type=int)
+parser.add_argument('--dataset_mean', default=-5.081, type=float)
+parser.add_argument('--dataset_std', default=4.4849, type=float)
+parser.add_argument('--im_res', default=224, type=int)
 
-# --- Loss Weights ---
-parser.add_argument('--cl_loss_weight', type=float, default=0.01, help='Weight for the contrastive loss component.')
-parser.add_argument('--rec_loss_weight', type=float, default=1.0, help='Weight for the reconstruction (MAE) loss component.')
-parser.add_argument('--cross_loss_weight', type=float, default=1.0, help='Weight for the cross-modal loss component.')
+# ======================
+# DataLoader
+# ======================
+parser.add_argument('--batch_size', default=112, type=int)
+parser.add_argument('--num_workers', default=4, type=int)
+
+# ======================
+# Optimizer
+# ======================
+parser.add_argument('--max_lr', default=1.5e-4, type=float)
+parser.add_argument('--weight_decay', default=0.05, type=float)
+parser.add_argument('--beta_1', default=0.95, type=float)
+parser.add_argument('--beta_2', default=0.999, type=float)
+
+
+# ======================
+# Resume
+# ======================
+parser.add_argument('--if_restart_train', action='store_true')
+parser.add_argument('--saved_checkpoint_path', default="", type=str)
+
+
+# ======================
+# Save
+# ======================
+parser.add_argument('--save_model', action='store_true')
+parser.add_argument('--save_dir', default='checkpoints', type=str)
+
+# ======================
+# Loss
+# ======================
+parser.add_argument('--cl_loss_weight', type=float, default=0.01)
+parser.add_argument('--rec_loss_weight', type=float, default=1.0)
+parser.add_argument('--cross_loss_weight', type=float, default=1.0)
 
 parser.add_argument("--n_print_steps", default=50, type=int)
 
 args = parser.parse_args()
 
-conf = {'num_mel_bins': 128, 'target_length': args.target_length, 'freqm': 0, 'timem': 0, 'mode':'train', 
-            'mean':args.dataset_mean, 'std':args.dataset_std, 'im_res': args.im_res}
-val_conf = {'num_mel_bins': 128, 'target_length': args.target_length, 'freqm': 0, 'timem': 0, 'mixup': 0,'mode':'eval', 
-            'mean': args.dataset_mean, 'std': args.dataset_std, 'im_res': args.im_res}
+# ======================
+# Config
+# ======================
+conf = {
+    'num_mel_bins': 128,
+    'target_length': args.target_length,
+    'freqm': 0,
+    'timem': 0,
+    'mode': 'train',
+    'mean': args.dataset_mean,
+    'std': args.dataset_std,
+    'skip_norm': False,
+    'im_res': args.im_res
+}
 
-# Construct dataloader
-train_loader = DataLoader(VideoAudioDataset_Pretraining(args.data_train, conf), batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=False, drop_last=True)
-val_loader = DataLoader(VideoAudioDataset_Pretraining(args.data_val, val_conf), batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=False, drop_last=True)
+val_conf = {
+    'num_mel_bins': 128,
+    'target_length': args.target_length,
+    'freqm': 0,
+    'timem': 0,
+    'mode': 'eval',
+    'mean': args.dataset_mean,
+    'std': args.dataset_std,
+    'skip_norm': False,
+    'im_res': args.im_res
+}
 
+# ======================
+# DataLoader
+# ======================
+train_loader = DataLoader(
+    VideoAudioDataset_Pretraining(args.data_train, conf),
+    batch_size=args.batch_size,
+    shuffle=True,
+    num_workers=args.num_workers,
+    drop_last=True
+)
+
+val_loader = DataLoader(
+    VideoAudioDataset_Pretraining(args.data_val, val_conf),
+    batch_size=args.batch_size,
+    shuffle=False,
+    num_workers=args.num_workers,
+    drop_last=True
+)
+
+# ======================
+# Model Init
+# ======================
 model = HAVIC_PT()
-if not isinstance(model, torch.nn.DataParallel):
-    model = torch.nn.DataParallel(model)
-
-# 加载checkpoint
-checkpoint = torch.load(args.pretrain_path, map_location='cpu')
-
-# 拿到当前模型的state_dict
 model_dict = model.state_dict()
 
-# 过滤checkpoint里尺寸匹配的参数
-pretrained_dict = {k: v for k, v in checkpoint.items() if k in model_dict and v.size() == model_dict[k].size()}
+# ======================
+# Load weights
+# ======================
+if not args.if_restart_train:
+    loaded_weights = torch.load(args.weights_path, map_location='cpu')
+else:
+    args.checkpoint = torch.load(args.saved_checkpoint_path, map_location='cpu')
+    loaded_weights = args.checkpoint["model"]
 
-# 更新模型参数
+# filter matched params
+pretrained_dict = {
+    k: v for k, v in loaded_weights.items()
+    if k in model_dict and v.shape == model_dict[k].shape
+}
+
 model_dict.update(pretrained_dict)
 model.load_state_dict(model_dict)
 
-# 打印哪些参数没加载上（缺失和多余的）
-missing_keys = [k for k in model_dict if k not in pretrained_dict]
-unexpected_keys = [k for k in checkpoint if k not in model_dict]
+# ======================
+# Logging
+# ======================
+missing_keys = [k for k in model_dict.keys() if k not in loaded_weights]
+unexpected_keys = [k for k in loaded_weights.keys() if k not in model_dict]
 
-print(f"Missing keys (not loaded from checkpoint): {missing_keys}")
-print(f"Unexpected keys (in checkpoint but not in model): {unexpected_keys}")
-print(f"Loaded pretrained model from {args.pretrain_path}, loaded params: {len(pretrained_dict)}")
+print(f"Missing keys: {len(missing_keys)}")
+print(f"Unexpected keys: {len(unexpected_keys)}")
+print(f"Loaded params: {len(pretrained_dict)}")
 
-print("\n Creating experiment directory: %s"%args.save_dir)
-if not os.path.exists(args.save_dir):
-    os.makedirs(args.save_dir)
+if not args.if_restart_train:
+    print(f"Loaded pretrained weights from {args.weights_path}")
+else:
+    print(f"Resumed from {args.saved_checkpoint_path}")
 
-# Train model
-print("Now start training for %d epochs"%args.total_epochs)
+# ======================
+# Save dir
+# ======================
+os.makedirs(args.save_dir, exist_ok=True)
+print(f"checkpoint save dir: {args.save_dir}")
+
+# ======================
+# Train
+# ======================
+print(f"Start training for {args.total_epochs} epochs")
 train(model, train_loader, val_loader, args)

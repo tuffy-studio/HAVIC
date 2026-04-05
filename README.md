@@ -153,7 +153,7 @@ After pre-training, the pre-trained weights need to be transferred to be loaded 
 
 ```bash
 # Make sure you are in the project root directory.
-python ./weights/pt2ft.py
+python ./weights/initialize_finetune_weights.py
 ```
 This step will generate a `model_to_be_ft.pth` file, which contains the initialized model weights for finetuning, and a `newly_added_modules.txt` file, which is a list recording the newly added modules that will be trained at a larger learning rate during the finetuning stage.
 

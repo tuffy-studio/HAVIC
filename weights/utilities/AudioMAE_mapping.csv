@@ -1,0 +1,4 @@
+original,target
+patch_embed,AudioEncoder.patch_embed
+blocks,AudioEncoder.blocks
+norm,AudioEncoder.norm

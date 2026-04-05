@@ -215,6 +215,7 @@ class VisualDecoder(nn.Module):
     ):
         super().__init__()
         output_dim = 3 * tubelet_size * patch_size * patch_size
+        self.enc_dec_proj = nn.Linear(encoder_embed_dim, embed_dim, bias=False)
         self.use_hierarchical = use_hierarchical
         self.patch_size = patch_size
         self.tubelet_size = tubelet_size
@@ -305,10 +306,9 @@ class VisualDecoder(nn.Module):
         return x
 
     def forward(self, x, video_3=None, video_6=None, video_9=None, video_12=None, ids_keep_video=None):
-
+        x = self.enc_dec_proj(x)
         x = self.recover_from_mask(x, ids_keep_video, self.mask_token)
         x = self.pos_embedding(x)
-        add_connection =False
         print(f"x shape before decoder blocks: {x.shape}")
         if self.use_hierarchical:
             i=1

@@ -128,7 +128,7 @@ class VideoAudioDataset_Pretraining(Dataset):
         return torch.stack(frames)  # 输出形状: [16, 3, H, W]
 
     def __getitem__(self, index):
-        video_name, face_crop_folder, label = self.data[index]  # eg. xx.mp4,0
+        video_name, face_crop_folder, _, _, _ = self.data[index]
  
         try:
             fbank = self._wav2fbank(video_name)
@@ -146,10 +146,8 @@ class VideoAudioDataset_Pretraining(Dataset):
         else:
             pass
 
-        # not used in pre-training stage
-        label = torch.tensor(int(label), dtype=torch.long)  
 
-        return fbank, frames, label
+        return fbank, frames
 
     def __len__(self):
         return self.num_samples
