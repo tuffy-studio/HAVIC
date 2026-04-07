@@ -1,4 +1,3 @@
-import sys
 import os
 import csv
 import datetime
@@ -8,7 +7,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch.cuda.amp import autocast, GradScaler
-import torch.nn.functional as F
 
 #torch.autograd.set_detect_anomaly(True)# If True, enables anomaly detection for debugging gradient explosion, but slows training
 

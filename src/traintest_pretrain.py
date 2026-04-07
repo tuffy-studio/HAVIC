@@ -4,7 +4,6 @@ import datetime
 import time
 from utilities import *
 import torch
-import torch.nn as nn
 from torch.cuda.amp import autocast, GradScaler
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend for server environments
