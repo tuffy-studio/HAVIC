@@ -10,28 +10,37 @@ import numpy as np
 from torch.cuda.amp import autocast, GradScaler
 import torch.nn.functional as F
 
-#torch.autograd.set_detect_anomaly(True) # 若为True，则开启异常检测，追踪模型发散原因，但会影响训练速度
+#torch.autograd.set_detect_anomaly(True)# If True, enables anomaly detection for debugging gradient explosion, but slows training
 
 def save_data(csv_file, epoch, data, data_name):
-    # 如果 CSV 文件不存在，就创建并写入表头
+    """
+    Save training metrics to a CSV file.
+
+    Args:
+        csv_file (str): Path to CSV file
+        epoch (int): Current epoch index
+        data (float): Metric value (e.g., loss, accuracy)
+        data_name (str): Column name for the metric
+    """
     try:
-        # 打开 CSV 文件，追加模式（'a'）避免覆盖原数据
+        # Open CSV file in append mode to avoid overwriting existing data
         with open(csv_file, mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
 
-            # 如果文件为空，写入表头
-            if file.tell() == 0:  # 检查文件是否为空
-                writer.writerow(['epoch', data_name])  # 表头
+            # Write header if file is empty
+            if file.tell() == 0:
+                writer.writerow(['epoch', data_name])
 
-            # 写入当前 epoch 和损失值
+            # Write current epoch and value
             writer.writerow([epoch, data])
+
     except Exception as e:
         print(f"Error while saving data: {e}")
 
 def get_bce_weights(labels, neg_weight=1.0, pos_weight=1.0):
     return torch.where(labels == 0, neg_weight, pos_weight).unsqueeze(-1)
         
-def train(model, train_loader, test_loader, args, mlp_list, verbose=True, classify_loss="BCE"): 
+def train(model, train_loader, test_loader, args, verbose=True): 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Start training model on {device}")
     torch.set_grad_enabled(True)
@@ -49,43 +58,35 @@ def train(model, train_loader, test_loader, args, mlp_list, verbose=True, classi
     
     model.to(device)
 
-    mlp_params = list(
-        filter(  # 1. filter() 用于筛选元素
-            lambda kv: kv[0] in mlp_list,  # 2. lambda 函数检查参数名称是否在 mlp_list 中
-            model.named_parameters()  # 3. 获取模型中所有参数的 (name, value) 元组
-        )
-    )
+    head_params = []
+    base_params = []
+ 
+    for name, param in model.named_parameters():
+            if 'audio_encoder' in name or 'visual_encoder' in name or 'AudioVisualInteractionModule' in name:
+                base_params.append(param)
+            else:
+                head_params.append(param)
 
-    base_params = list(
-        filter(
-            lambda kv: kv[0] not in mlp_list, 
-            model.named_parameters()
-            )
-    )
-
-    mlp_params = [i[1] for i in mlp_params]
-    base_params = [i[1] for i in base_params]
-    
     optimizer = torch.optim.AdamW([{'params': base_params, 'lr': args.lr, 'weight_decay': 5e-2}, 
-                                  {'params': mlp_params, 'lr': args.lr * args.head_lr, 'weight_decay':5e-2}], 
+                                  {'params': head_params, 'lr': args.lr * args.head_lr, 'weight_decay':5e-2}], 
                                    betas=(0.95, 0.999))
 
     base_lr = optimizer.param_groups[0]['lr']
-    mlp_lr = optimizer.param_groups[1]['lr']
-    print('base lr, mlp lr : ', base_lr, mlp_lr)
+    head_lr = optimizer.param_groups[1]['lr']
+    print('base lr, head lr : ', base_lr, head_lr)
 
-    print('Total newly initialized MLP parameter number is : {:.3f} million'.format(sum(p.numel() for p in mlp_params) / 1e6))
+    print('Total newly initialized module parameter number is : {:.3f} million'.format(sum(p.numel() for p in head_params) / 1e6))
     print('Total pretrained backbone parameter number is : {:.3f} million'.format(sum(p.numel() for p in base_params) / 1e6))
     
 
-    # 余弦退火重启调度器
+    # Cosine annealing warm restart scheduler
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-    optimizer,
-    T_0=10,       # 第一个周期 10 epoch
-    T_mult=1,     # 倍增周期长度
-    eta_min=1e-9,  # 最小学习率（防止为 0）
-    last_epoch=-1
-    )  
+        optimizer,
+        T_0=10,        # first cycle: 10 epochs
+        T_mult=1,      # cycle length multiplier
+        eta_min=1e-9,  # minimum learning rate (avoid reaching zero)
+        last_epoch=-1
+    )
     
     # BCE loss
     BCE_loss_fn = nn.BCEWithLogitsLoss(reduction='none') 
@@ -94,10 +95,10 @@ def train(model, train_loader, test_loader, args, mlp_list, verbose=True, classi
     print("start training...") 
     model.train()
 
-    # 创建日志目录，根据当前时间戳命名
-    start_time = datetime.datetime.now() + datetime.timedelta(hours=8) # 8 means Beijing Time
+    # logging directory
+    start_time = datetime.datetime.now() + datetime.timedelta(hours=0)
     start_time_str = start_time.strftime("%Y_%m_%d_%H_%M")
-    log_dir = os.path.join("./logs/finetuning/", start_time_str)
+    log_dir = os.path.join(f"{exp_dir}/logs/", start_time_str)
     os.makedirs(log_dir, exist_ok=True)
 
     optimizer.zero_grad() 
@@ -105,6 +106,7 @@ def train(model, train_loader, test_loader, args, mlp_list, verbose=True, classi
     use_amp = True   # True = 使用混合精度 (autocast + GradScaler)，False = 全精度 FP32
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)  # 如果 use_amp=False，scaler 不会起作用
 
+    # ========================= TRAIN LOOP =========================
     while epoch < args.n_epochs + 1:
         begin_time = time.time()
         end_time = time.time()
@@ -202,30 +204,18 @@ def train(model, train_loader, test_loader, args, mlp_list, verbose=True, classi
         print('start validation')
         
         stats, stats_audio, stats_video, valid_loss, valid_av_loss, valid_a_loss, valid_v_loss = \
-        validate(model, test_loader, classify_loss=classify_loss)
+        validate(model, test_loader)
 
-        if classify_loss == "BCE":
-            ap = stats[0]['ap']
-            auc = stats[0]['auc']
-            acc = stats[0]['acc']
-            audio_ap = stats_audio[0]['ap']
-            audio_auc = stats_audio[0]['auc']
-            audio_acc = stats_audio[0]['acc']
+        ap = stats[0]['ap']
+        auc = stats[0]['auc']
+        acc = stats[0]['acc']
+        audio_ap = stats_audio[0]['ap']
+        audio_auc = stats_audio[0]['auc']
+        audio_acc = stats_audio[0]['acc']
 
-            video_ap = stats_video[0]['ap']
-            video_auc = stats_video[0]['auc']
-            video_acc = stats_video[0]['acc']
-        else:
-            ap = stats[1]['ap']
-            auc = stats[1]['auc']
-            acc = stats[1]['acc']
-            audio_ap = stats_audio[1]['ap']
-            audio_auc = stats_audio[1]['auc']
-            audio_acc = stats_audio[1]['acc']
-
-            video_ap = stats_video[1]['ap']
-            video_auc = stats_video[1]['auc']
-            video_acc = stats_video[1]['acc']
+        video_ap = stats_video[0]['ap']
+        video_auc = stats_video[0]['auc']
+        video_acc = stats_video[0]['acc']
 
         # 打印验证结果
         print("============================================")
@@ -273,7 +263,6 @@ def train(model, train_loader, test_loader, args, mlp_list, verbose=True, classi
                 best_epoch = epoch
                 best_acc = acc
 
-
         # 保存模型参数
         if best_epoch == epoch:
             torch.save(model.state_dict(), "%s/models/best_ft_model.pth" % (exp_dir))
@@ -282,9 +271,7 @@ def train(model, train_loader, test_loader, args, mlp_list, verbose=True, classi
         
         finish_time = time.time()
         print('epoch {:d} training time: {:.3f}'.format(epoch, finish_time-begin_time))
-        epoch += 1
 
-        # 每个epoch重置计数类
         batch_time.reset()
         per_sample_time.reset()
         data_time.reset()
@@ -292,10 +279,11 @@ def train(model, train_loader, test_loader, args, mlp_list, verbose=True, classi
         per_sample_dnn_time.reset()
         loss_meter.reset()
 
-        # 学习率调度器更新
         scheduler.step()
 
-def validate(model, test_loader, verbose=True, classify_loss="BCE"):
+        epoch += 1
+
+def validate(model, test_loader, verbose=True):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     BCE_loss_fn = nn.BCEWithLogitsLoss(reduction='none') 
@@ -335,18 +323,14 @@ def validate(model, test_loader, verbose=True, classify_loss="BCE"):
 
                 audio_outputs, video_outputs, outputs = model(a_input, v_input)
 
-                if classify_loss == "BCE":
-                    audio_weights = get_bce_weights(audio_labels.to(device), neg_weight=1.0)
-                    video_weights = get_bce_weights(video_labels.to(device), neg_weight=1.0)
-                    weights = get_bce_weights(labels.to(device), neg_weight=1.0)
+                audio_weights = get_bce_weights(audio_labels.to(device), neg_weight=1.0)
+                video_weights = get_bce_weights(video_labels.to(device), neg_weight=1.0)
+                weights = get_bce_weights(labels.to(device), neg_weight=1.0)
 
-                    audio_loss = (BCE_loss_fn(audio_outputs, audio_labels.unsqueeze(-1)) * audio_weights).mean()
-                    video_loss = (BCE_loss_fn(video_outputs, video_labels.unsqueeze(-1)) * video_weights).mean()
-                    av_loss = (BCE_loss_fn(outputs, labels.unsqueeze(-1)) * weights).mean()
-                else:
-                    av_loss = CE_loss_fn(outputs, labels) # CE loss
-                    audio_loss = CE_loss_fn(audio_outputs, audio_labels)
-                    video_loss = CE_loss_fn(video_outputs, video_labels)
+                audio_loss = (BCE_loss_fn(audio_outputs, audio_labels.unsqueeze(-1)) * audio_weights).mean()
+                video_loss = (BCE_loss_fn(video_outputs, video_labels.unsqueeze(-1)) * video_weights).mean()
+                av_loss = (BCE_loss_fn(outputs, labels.unsqueeze(-1)) * weights).mean()
+
 
                 loss = av_loss + audio_loss + video_loss
 
@@ -385,20 +369,11 @@ def validate(model, test_loader, verbose=True, classify_loss="BCE"):
         a_loss = np.mean(a_loss_meter)
         v_loss = np.mean(v_loss_meter)
        
-
-        if classify_loss == "BCE":
-            target = target.unsqueeze(1)
-            audio_target = audio_target.unsqueeze(1)
-            video_target = video_target.unsqueeze(1)
-            stats = calculate_stats(torch.sigmoid(output).cpu(), target.cpu())
-            stats_audio = calculate_stats(torch.sigmoid(audio_output).cpu(), audio_target.cpu())
-            stats_video = calculate_stats(torch.sigmoid(video_output).cpu(), video_target.cpu())
-        else:
-            target = F.one_hot(target, num_classes=2).float()
-            audio_target = F.one_hot(audio_target, num_classes=2).float()
-            video_target = F.one_hot(video_target, num_classes=2).float()
-            stats = calculate_stats(torch.softmax(output, dim=-1).cpu(), target.cpu())
-            stats_audio = calculate_stats(torch.softmax(audio_output, dim=-1).cpu(), audio_target.cpu())
-            stats_video = calculate_stats(torch.softmax(video_output, dim=-1).cpu(), video_target.cpu())
+        target = target.unsqueeze(1)
+        audio_target = audio_target.unsqueeze(1)
+        video_target = video_target.unsqueeze(1)
+        stats = calculate_stats(torch.sigmoid(output).cpu(), target.cpu())
+        stats_audio = calculate_stats(torch.sigmoid(audio_output).cpu(), audio_target.cpu())
+        stats_video = calculate_stats(torch.sigmoid(video_output).cpu(), video_target.cpu())
 
         return stats, stats_audio, stats_video, loss, av_loss, a_loss, v_loss

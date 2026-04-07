@@ -5,7 +5,6 @@ from torch.utils.data import DataLoader
 from dataloader import *
 from models.HAVIC import *
 from traintest_finetune import *
-import ast
 
 parser = argparse.ArgumentParser(description='HAVIC Finetune')
 parser.add_argument('--data_train', type=str, help='path to train data csv')
@@ -32,10 +31,6 @@ parser.add_argument("--n_print_steps", default=100, type=int)
 
 parser.add_argument('--freqm', help='frequency mask max length', type=int, default=0)
 parser.add_argument('--timem', help='time mask max length', type=int, default=0)
-
-
-with open("../weights/new_component_list.txt", "r") as f:
-    mlp_list = ast.literal_eval(f.read())
 
 args = parser.parse_args()
 
@@ -64,8 +59,6 @@ print(f"Using Train: {len(train_loader)}, Eval: {len(val_loader)}")
 
 # Construct model
 ft_model = HAVIC_FT()
-if not isinstance(ft_model, torch.nn.DataParallel):
-    ft_model = torch.nn.DataParallel(ft_model)
 
 # init model
 if args.pretrain_path is not None:
@@ -83,4 +76,4 @@ if not os.path.exists(args.save_dir):
 
 # Train model
 print("Now start training for %d epochs"%args.n_epochs)
-train(ft_model, train_loader, val_loader, args, mlp_list)
+train(ft_model, train_loader, val_loader, args)

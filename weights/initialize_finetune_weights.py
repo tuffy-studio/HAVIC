@@ -32,15 +32,12 @@ missing, unexpected = ft_model.load_state_dict(ft_weight, strict=False)
 print('\n' + '=' * 50)
 print("Missing keys (weights need to train from scratch in finetuing stage):")
 print(missing)
-with open("new_component_list.txt", "w") as f:
-    f.write(str(missing))
 
 print('\n' + '=' * 50)
 print("Unexpected keys:")
 print(unexpected)
 
 state_dict = ft_model.state_dict()
-
 torch.save(state_dict, output_weight_path)
 
 
