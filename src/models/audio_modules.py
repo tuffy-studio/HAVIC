@@ -1,12 +1,8 @@
-import os
-import random
 import torch
 import torch.nn as nn
-from torch import Tensor
 import numpy as np
-import timm
-from timm.models.layers import to_2tuple, trunc_normal_, DropPath
-from timm.models.vision_transformer import Attention, Mlp, PatchEmbed, Block
+from timm.models.layers import to_2tuple, DropPath
+from timm.models.vision_transformer import Mlp
 from .positional_embedding import get_2d_sincos_pos_embed, get_1d_sincos_pos_embed_from_grid
 from torch.nn import functional as F
 
@@ -28,13 +24,6 @@ class PatchEmbed(nn.Module):
         return x
 
 class Attention(nn.Module):
-    '''
-    args:
-    dim: 输入特征的维度
-    num_heads: 注意力头的数量
-    qk_scale: 缩放因子
-    attn_head_dim: 注意力头的维度，默认为dim // num_heads，即每个注意力头处理一个子空间
-    '''
     def __init__(
         self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0.,
         proj_drop=0., attn_head_dim=None
@@ -120,7 +109,7 @@ class AudioEncoder(nn.Module):
 
         self.cls_tokens = nn.Parameter(torch.zeros(1, 8, embed_dim), requires_grad=True)
 
-        self.time_pos_embed = nn.Parameter(torch.zeros(1, 8, embed_dim), requires_grad=False)  # 非学习参数
+        self.cls_pos_embed = nn.Parameter(torch.zeros(1, 8, embed_dim), requires_grad=False)  # 非学习参数
 
         self.blocks = nn.Sequential(*[
             Block(
@@ -162,29 +151,7 @@ class AudioEncoder(nn.Module):
         index=ids_keep.unsqueeze(-1).expand(-1, -1, x.shape[-1])
         x_masked = torch.gather(x, dim=1, index=index)  # [N, len_keep, D]
         return x_masked
-    
-    def build_cls_token_attention_mask(self, T=8, P=196):
-        """
-        构建 attention mask, 输出 shape: [L, L] 其中 L = T * (P + 1)
-        """
-        L = T * (P + 1)
-        mask = torch.full((L, L), float('-inf'))  # 初始化为全部禁止
-        for t in range(T):
-            c_idx = t * (P + 1)
-            p_start = c_idx + 1
-            p_end = p_start + P
 
-            # 1. cls token 只能看自己帧 patch
-            mask[c_idx, p_start:p_end] = 0
-
-            # 2. Patch token 允许全局看 patch
-            for t2 in range(T):
-                p2_start = t2 * (P + 1) + 1
-                p2_end = p2_start + P
-                mask[p_start:p_end, p2_start:p2_end] = 0
-
-        return mask  # shape: [L, L]
-      
     def forward(self, audio, ids_keep=None, apply_cls_tokens=False, use_mask=False, use_hierarchical=None):
 
         if use_hierarchical is None:
@@ -208,17 +175,13 @@ class AudioEncoder(nn.Module):
             P = audio_emb.size(1) // T
             audio_emb = audio_emb.view(B, T, P, -1)                     # [B, 8, P, D]
 
-            # 加上 time_pos_embed：对每个 cls_token 加上对应位置编码
-            cls_tokens = self.cls_tokens + self.time_pos_embed  # [1, 8, D]
+            # 加上 cls_pos_embed：对每个 cls_token 加上对应位置编码
+            cls_tokens = self.cls_tokens + self.cls_pos_embed  # [1, 8, D]
             cls_tokens = self.cls_tokens.expand(B, -1, -1)[:, :, None, :]  # [B, 8, 1, D]
             audio_emb = torch.cat([cls_tokens, audio_emb], dim=2)     # [B, 8, 1+P, D]
             audio_emb = audio_emb.reshape(B, -1, self.embed_dim)  # [B, T*(1+P), D]
 
-            if use_mask:
-                mask = self.build_cls_token_attention_mask(T, P).to(audio.device)  # [N, N]
-                attn_mask = mask.unsqueeze(0).unsqueeze(0)  # [1, 1, N, N]
-
-        audio_emb = self.forward_features(audio_emb, attn_mask=attn_mask, use_hierarchical=use_hierarchical)
+        audio_emb = self.forward_features(audio_emb, attn_mask=None, use_hierarchical=use_hierarchical)
         return audio_emb
     
     def initialize_weights(self):
@@ -245,10 +208,10 @@ class AudioEncoder(nn.Module):
         # 初始化 learnable cls tokens
         nn.init.normal_(self.cls_tokens, std=0.02)
 
-        # 生成固定的时间位置编码
-        time_pos = np.arange(8)
-        time_pos_embed = get_1d_sincos_pos_embed_from_grid(self.embed_dim, time_pos)
-        self.time_pos_embed.data.copy_(torch.from_numpy(time_pos_embed).unsqueeze(0))  # [1, 8, D]
+        # 生成固定的 cls 位置编码
+        cls_pos = np.arange(8)
+        cls_pos_embed = get_1d_sincos_pos_embed_from_grid(self.embed_dim, cls_pos)
+        self.cls_pos_embed.data.copy_(torch.from_numpy(cls_pos_embed).unsqueeze(0))  # [1, 8, D]
 
 # HierarchcalAttentionPooling fusion module in decoder
 class HierarchcalAttention(nn.Module):
@@ -351,8 +314,6 @@ class AudioDecoder(nn.Module):
         self.HiA_6 = HierarchcalAttention(decoder_embed_dim, num_heads=6)
         self.HiA_9 = HierarchcalAttention(decoder_embed_dim, num_heads=6)
         self.HiA_12 = HierarchcalAttention(decoder_embed_dim, num_heads=6)
-
-        #self.mask_token = nn.Parameter(torch.zeros(1, 1, decoder_embed_dim), requires_grad=True)  # learnable mask token
 
         self.initialize_weights()
 

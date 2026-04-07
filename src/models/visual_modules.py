@@ -39,7 +39,7 @@ class VisualEncoder(nn.Module):
 
         self.cls_tokens = nn.Parameter(torch.zeros(1, 8, embed_dim), requires_grad=True) # learnable contrastive time token
 
-        self.time_pos_embed = nn.Parameter(torch.zeros(1, 8, embed_dim), requires_grad=False)  # 非学习参数
+        self.cls_pos_embed = nn.Parameter(torch.zeros(1, 8, embed_dim), requires_grad=False)  # 非学习参数
         
         self.apply(self._init_weights)
 
@@ -59,32 +59,10 @@ class VisualEncoder(nn.Module):
         # 初始化 learnable cls tokens
         nn.init.normal_(self.cls_tokens, std=0.02)
 
-        # 生成固定的时间位置编码
-        time_pos = np.arange(8)
-        time_pos_embed = get_1d_sincos_pos_embed_from_grid(self.embed_dim, time_pos)
-        self.time_pos_embed.data.copy_(torch.from_numpy(time_pos_embed).unsqueeze(0))  # [1, 8, D]
-
-    def build_cls_token_attention_mask(self, T=8, P=196):
-        """
-        构建 attention mask, 输出 shape: [L, L] 其中 L = T * (P + 1)
-        """
-        L = T * (P + 1)
-        mask = torch.full((L, L), float('-inf'))  # 初始化为全部禁止
-        for t in range(T):
-            c_idx = t * (P + 1)
-            p_start = c_idx + 1
-            p_end = p_start + P
-
-            # 1. Time token 只能看自己帧 patch
-            mask[c_idx, p_start:p_end] = 0
-
-            # 2. Patch token 允许全局看 patch
-            for t2 in range(T):
-                p2_start = t2 * (P + 1) + 1
-                p2_end = p2_start + P
-                mask[p_start:p_end, p2_start:p2_end] = 0
-
-        return mask  # shape: [L, L]
+        # 生成固定的 cls 位置编码
+        cls_pos = np.arange(8)
+        cls_pos_embed = get_1d_sincos_pos_embed_from_grid(self.embed_dim, cls_pos)
+        self.cls_pos_embed.data.copy_(torch.from_numpy(cls_pos_embed).unsqueeze(0))  # [1, 8, D]
 
     def forward_features(self, x, attn_mask=None, use_hierarchical=True):
         layer = 0
@@ -133,18 +111,13 @@ class VisualEncoder(nn.Module):
             emb = emb.reshape(B, T, P, self.embed_dim)
 
             # 插入 cls tokens
-            cls_tokens = self.cls_tokens + self.time_pos_embed  # [1, 8, D]
+            cls_tokens = self.cls_tokens + self.cls_pos_embed  # [1, 8, D]
             cls_tokens = cls_tokens.expand(B, -1, -1)[:, :, None, :]  # [B, 8, 1, D]
             emb = torch.cat([cls_tokens, emb], dim=2)  # [B, 8, 1+P, D]
             emb = emb.reshape(B, -1, self.embed_dim)  # [B, N, D]，N = 8 * (1 + P)
 
-            # 如果启用 attention mask
-            if use_mask:
-                mask = self.build_cls_token_attention_mask(T, P).to(x.device)  # [N, N]
-                attn_mask = mask.unsqueeze(0).unsqueeze(0)  # [1, 1, N, N]
-
         # === 进入 transformer blocks，带 attn_mask ===
-        emb = self.forward_features(emb, attn_mask=attn_mask, use_hierarchical=self.use_hierarchical)
+        emb = self.forward_features(emb, attn_mask=None, use_hierarchical=self.use_hierarchical)
         return emb
 
 # HierarchcalAttentionPooling fusion module in decoder
@@ -215,7 +188,6 @@ class VisualDecoder(nn.Module):
     ):
         super().__init__()
         output_dim = 3 * tubelet_size * patch_size * patch_size
-        self.enc_dec_proj = nn.Linear(encoder_embed_dim, embed_dim, bias=False)
         self.use_hierarchical = use_hierarchical
         self.patch_size = patch_size
         self.tubelet_size = tubelet_size
@@ -227,6 +199,8 @@ class VisualDecoder(nn.Module):
             self.norm = self.norm_layer(embed_dim)
         else:
             raise NotImplementedError("Only LayerNorm is supported")
+
+        self.enc_dec_proj = nn.Linear(encoder_embed_dim, embed_dim, bias=False)
 
         # sine-cosine positional embeddings
         self.pos_embedding = SinCosPositionalEmbedding(
