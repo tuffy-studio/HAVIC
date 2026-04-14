@@ -73,6 +73,11 @@ if [[ "${IF_RESTART_TRAIN}" == true && -z "${SAVED_CHECKPOINT_PATH}" ]]; then
 fi
 
 
+mkdir -p $SAVE_DIR
+mkdir -p ${SAVE_DIR}/models
+mkdir -p ${SAVE_DIR}/checkpoint
+
+
 # =======================
 # Build Optional Args
 # =======================

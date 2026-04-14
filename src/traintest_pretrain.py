@@ -135,7 +135,11 @@ def train(model, train_loader, test_loader, args):
     # best model tracking variables
     best_epoch, best_loss = 0, np.inf
 
-    epoch = 1
+    global_step, epoch = 1, 1
+    if args.if_restart_train:
+        epoch = args.checkpoint['epoch']
+        global_step = args.checkpoint['global_step']
+
     accumulation_steps = args.accumulation_steps
     exp_dir = args.save_dir
     
@@ -160,6 +164,7 @@ def train(model, train_loader, test_loader, args):
         anneal_strategy='cos',
         div_factor=25,
         final_div_factor=1e4,
+        last_epoch = global_step-2,
     )
 
     use_amp = args.if_use_amp   
@@ -170,8 +175,6 @@ def train(model, train_loader, test_loader, args):
         if args.saved_checkpoint_path and os.path.exists(args.saved_checkpoint_path):
             print(f"Loading checkpoint state from {args.saved_checkpoint_path}")
             optimizer.load_state_dict(args.checkpoint["optimizer"])
-            scheduler.load_state_dict(args.checkpoint["scheduler"])
-            epoch = args.checkpoint['epoch']
             if use_amp and "scaler" in args.checkpoint:
                 scaler.load_state_dict(args.checkpoint["scaler"])
         else:
@@ -243,6 +246,7 @@ def train(model, train_loader, test_loader, args):
                 scaler.update() 
                 scheduler.step()
                 optimizer.zero_grad()
+                global_step += 1
 
 
             # MAE visualization 
@@ -317,9 +321,9 @@ def train(model, train_loader, test_loader, args):
             torch.save({
                 "model": model.module.state_dict(),
                 "optimizer": optimizer.state_dict(),
-                "scheduler": scheduler.state_dict(),
                 "scaler": scaler.state_dict(),
-                "epoch": epoch
+                "epoch": epoch,
+                "global_step": global_step,
             }, f"{exp_dir}/checkpoint/pretraining.{epoch}.checkpoint.pth")
         
         # ================= validation  =================
@@ -361,13 +365,7 @@ def train(model, train_loader, test_loader, args):
             best_epoch = epoch
 
         if best_epoch == epoch:
-            torch.save({
-                "model": model.module.state_dict(),
-                "optimizer": optimizer.state_dict(),
-                "scheduler": scheduler.state_dict(),
-                "scaler": scaler.state_dict(),
-                "epoch": epoch,
-            }, f"{exp_dir}/checkpoint/pretraining.best.checkpoint.pth")
+            torch.save(model.module.state_dict(), f"{exp_dir}/models/pretraining_best_model.pth")
 
         # epoch time
         finish_time = time.time()
