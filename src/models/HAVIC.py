@@ -575,7 +575,7 @@ class HAVIC_FT(nn.Module):
 
         return cls_tokens, patch_tokens.reshape(B, -1, D)
 
-    def forward(self, audio=None, video=None):
+    def forward(self, audio=None, video=None, is_training=True):
         # audio: (B, 1, 1024, 128)
         # video: (B, 3, 16, 224, 224)
 
@@ -641,10 +641,12 @@ class HAVIC_FT(nn.Module):
         overall_real_or_fake = self.classifier(final_feat)
     
         # auxiliary task: audio/visual classification
-        audio_real_or_fake = self.classifier_audio(aggregated_audio_feats)  # [B, 1]
-        video_real_or_fake = self.classifier_visual(aggregated_video_feats)  # [B, 1]
-
-        return audio_real_or_fake, video_real_or_fake, overall_real_or_fake
+        if is_training:
+            audio_real_or_fake = self.classifier_audio(aggregated_audio_feats)  # [B, 1]
+            video_real_or_fake = self.classifier_visual(aggregated_video_feats)  # [B, 1]
+            return audio_real_or_fake, video_real_or_fake, overall_real_or_fake
+        else:
+            return overall_real_or_fake
 
 class LearnableWeightedPool(nn.Module):
     def __init__(self, num_layers: int):
