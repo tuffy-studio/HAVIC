@@ -87,7 +87,7 @@ class VisualEncoder(nn.Module):
         x_masked = torch.gather(x, dim=1, index=index)  # [B, len_keep, D]
         return x_masked
     
-    def forward(self, x, ids_keep=None, apply_cls_tokens=False, use_mask=False, use_hierarchical=None):
+    def forward(self, x, ids_keep=None, apply_cls_tokens=True, use_mask=False, use_hierarchical=None):
 
         if use_hierarchical is None:
             use_hierarchical = self.use_hierarchical
@@ -283,7 +283,6 @@ class VisualDecoder(nn.Module):
         x = self.enc_dec_proj(x)
         x = self.recover_from_mask(x, ids_keep_video, self.mask_token)
         x = self.pos_embedding(x)
-        print(f"x shape before decoder blocks: {x.shape}")
         if self.use_hierarchical:
             i=1
             for blk in self.blocks:

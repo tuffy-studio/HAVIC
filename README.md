@@ -25,6 +25,7 @@
 - **[Dec 2025]** Pre-training, finetuning, evaluation and inference code are released.
 - **[Feb 2026]** Our paper is accepted at CVPR 2026 Findings.
 - **[Mar 2026]** Our paper is available on arXiv: [https://arxiv.org/abs/2603.23960](https://arxiv.org/abs/2603.23960).
+- **[Apr 2026]** Model weights pre-trained on the LRS2 dataset are provided [here](https://huggingface.co/JielunPeng/HAVIC/).
 - **[Coming Soon]** We will release the model weights, and the HiFi-AVDF dataset ASAP. 
 - **⭐ Star us** to get notified when the weights and dataset are released!
 
@@ -35,15 +36,15 @@ This repository contains the official implementation of [Leave No Stone Unturned
 
 
 
-## Requirements
+## 1 Requirements
 
-### 1. Create a conda environment and activate it
+### Create a conda environment and activate it
 
 ```bash
 conda create -n HAVIC python=3.10 ffmpeg
 conda activate HAVIC
 ```
-### 2. Install Python ependencies
+### Install Python ependencies
 
 ```bash
 pip install -r requirements.txt
@@ -56,7 +57,7 @@ pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 ``` -->
 
 
-## Dataset Download
+## 2 Dataset Download
 
 We pre-train the HAVIC on the **LRS2** dataset, which contains only real videos. Please download LRS2 [here](https://www.robots.ox.ac.uk/~vgg/data/lip_reading/lrs2.html). Due to copyright we cannot release the data. 
 
@@ -73,9 +74,9 @@ To further evaluate the cross-dataset generalization of the model, we use **KoDF
 
 
 
-## Training
+## 3 Training
 
-### Pre-training
+### 3.1 Pre-training
 
 #### Step 1: Data Preprocessing
 We perform preprocessing on LRS2 dataset to crop the face regions:
@@ -112,13 +113,19 @@ cd ./scripts/
 bash pretrain.sh
 ```
 
-**The pre-trained model weights will be provided [here](https://huggingface.co/JielunPeng/HAVIC/).**
+**The pre-trained model weights are provided [here](https://huggingface.co/JielunPeng/HAVIC/).**
 
-> Additionally, since our pre-training method incorporates the **Masked Autoencoders (MAE)** to learn self-supervised representations, we implemented visualizations of the masked regions and the reconstructed outputs in [MAE_visualization.py](./MAE_visualization.py). Before running, make sure to configure the necessary settings in the shell script [mae_visual.sh](./mae_visual.sh).
+
+Additionally, since our pre-training method incorporates the **Masked Autoencoders (MAE)** to learn self-supervised representations, we implemented visualizations of the masked regions and the reconstructed outputs in [MAE_visualization.py](./MAE_visualization.py). Before running, make sure to configure the necessary settings in the shell script [mae_visual.sh](./mae_visual.sh), then you can run the shell script [mae_visual.sh](./mae_visual.sh) to perform visualization. 
+
+```bash
+# Make sure you are in the project root directory.
+bash mae_visual.sh
+```
 
 ---
 
-### Finetuning
+### 3.2 Finetuning
 
 #### Step 1: Data Preprocessing
 
@@ -169,7 +176,7 @@ bash finetune.sh
 
 **The finetuned model weights will be also provided [here](https://huggingface.co/JielunPeng/HAVIC/).** 
 
-## Evaluation and Inference
+## 4 Evaluation and Inference
 Before evaluation or inference, please prepare your fine-tuned model, or download the model provided by us.
 
 To evaluate or run inference on videos, please first organize the input videos into a CSV file. You may use [our provided code](evaluation/make_label_csv.py) or prepare the CSV using your own method.
@@ -194,7 +201,7 @@ python sliding_window_infer.py \
 For each input video, the model outputs a deepfake probability score, indicating the likelihood that the video is manipulated (1:fake; 0:real). The prediction results will be saved to  `save_csv_path`, where each row contains a video path, the ground-truth label (if in evaluation mode), and predicted probability.
 
 
-## Acknowledgement
+## 5 Acknowledgement
 
 We appreciate the following github repos for their valuable code and contributions:
 
@@ -204,7 +211,7 @@ We appreciate the following github repos for their valuable code and contributio
 - FaceX-Zoo (https://github.com/JDAI-CV/faceX-Zoo)
 
 
-## Contact
+## 6 Contact
 
 If you have any questions or concerns, please contact:
 

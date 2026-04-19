@@ -13,7 +13,7 @@ import torchvision.transforms as T
 import ffmpeg
 import torchaudio
 import matplotlib
-matplotlib.use('Agg')  # 使用非交互式后端，适用于服务器
+matplotlib.use('Agg')  # Use a non-interactive backend, suitable for servers
 import matplotlib.pyplot as plt
 from src.models.HAVIC import HAVIC_PT
 from video_data_engine.video_engine import split_video, sample_video_uniform_16_decord, create_face_cropper
@@ -21,22 +21,22 @@ from einops import rearrange
 import argparse
 
 
-# ===================音频可视化相关函数===================
+# =================== Audio Visualization Functions ===================
 
 def plot_fbank(fbank, title="Mel Filter Bank", save_path="./mel_fbank.png"):
     """
-    绘制并保存梅尔滤波器图。
+    Plot and save a Mel filterbank spectrogram.
 
-    参数：
-        fbank: torch.Tensor ，形状为 [T, mel_bins]
-        title: 图标题
-        save_path: 保存路径
+    Args:
+        fbank: torch.Tensor with shape [T, mel_bins]
+        title: plot title
+        save_path: path to save the figure
     """
     if isinstance(fbank, torch.Tensor):
         fbank = fbank.detach().cpu().numpy()
 
     if fbank.ndim == 3:
-        fbank = fbank.squeeze(0)  # 去掉 channel 维度
+        fbank = fbank.squeeze(0)
 
     plt.figure(figsize=(10, 4))
     plt.imshow(fbank.T, aspect='auto', origin='lower', interpolation='none')
@@ -53,7 +53,7 @@ def plot_fbank(fbank, title="Mel Filter Bank", save_path="./mel_fbank.png"):
 def plot_fbank_with_black_mask(fbank, title="Masked Mel Filter Bank", output_path = ''):
     """
     fbank: Tensor or ndarray, shape [time, mel_bins]
-    掩蔽区域应为 -999，会在图中显示为黑色
+    Masked regions should be set to -999, which will appear as black in the visualization
     """
     if isinstance(fbank, torch.Tensor):
         fbank = fbank.cpu().numpy()
@@ -81,13 +81,14 @@ def plot_fbank_with_black_mask(fbank, title="Masked Mel Filter Bank", output_pat
     title = os.path.join(output_path, title)
     plt.savefig(f'{title}.png')
 
-def recover_from_mask(x_masked, ids_keep, mask_token, num_tokens=512):
+def recover_from_mask_audio(x_masked, ids_keep, mask_token, num_tokens=512):
     """
-    使用给定的 mask_token（如 learnable 参数）来填充未保留的 patch。
-    - x_masked: 掩蔽后的 token，形状 [N, L_keep, D]
-    - ids_keep: 保留 token 的原始索引 [N, L_keep]
-    - original_shape: 要恢复的形状 [N, T, H, W, D]
-    - mask_token: [1, 1, D]，一个 learnable 的 nn.Parameter
+    Use the given mask_token to fill the masked patches.
+
+    - x_masked: masked tokens, shape [N, L_keep, D]
+    - ids_keep: indices of kept tokens in the original sequence, [N, L_keep]
+    - original_shape: target shape to restore, [N, T, H, W, D]
+    - mask_token: [1, 1, D], a learnable nn.Parameter
     """
     N, L, D = x_masked.shape[0], num_tokens, x_masked.shape[-1]
 
@@ -110,13 +111,13 @@ def save_mask_audio(x, ids_keep, output_path):
     index=ids_keep.unsqueeze(-1).expand(-1, -1, x.shape[-1])
     x_masked = torch.gather(x, dim=1, index=index)  # [N, len_keep, D]
     mask_token = torch.full((1, 1, x.shape[2]), -999, dtype=x.dtype, device=x.device)
-    x_restored = recover_from_mask(x_masked, ids_keep, mask_token)  # shape: [1, 512, 256]
+    x_restored = recover_from_mask_audio(x_masked, ids_keep, mask_token)  # shape: [1, 512, 256]
     mel_blocks_recovered = x_restored.squeeze(0).reshape(64, 8, 16, 16)
     mel_blocks_recovered = mel_blocks_recovered.permute(0, 2, 1, 3)
     mel_spec_masked = mel_blocks_recovered.reshape(1024, 128)
-    plot_fbank_with_black_mask(mel_spec_masked, title=f"Masked Mel Spectrogram", output_path=output_path)
+    plot_fbank_with_black_mask(mel_spec_masked, title=f"masked_Mel_Spectrogram", output_path=output_path)
 
-# ===================视频可视化相关函数===================
+# =================== Visual Visualization Functions ===================
 
 def visualize_16_frames(folder, save_path):
     frame_files = sorted(os.listdir(folder))[:16]
@@ -151,13 +152,11 @@ def patchify_video(x, tubelet_size=2, patch_size=16):
     B, C, T, H, W = x.shape
     assert T % tubelet_size == 0 and H % patch_size == 0 and W % patch_size == 0
 
-    # 通道放在最前面（为了 match 你的 unpatch_to_img）
     x = rearrange(x, "b c (t pt) (h ph) (w pw) -> b (t h w) (c pt ph pw)",
                   pt=tubelet_size, ph=patch_size, pw=patch_size)
     return x
 
 def unpatch_to_img(x, tubelet_size=2, patch_size=16, n_patch_t=8, n_patch_h=14, n_patch_w=14, channels=3):
-    """将 token 还原为视频 (B, C, T, H, W)"""
     x = rearrange(x, "b n (c p) -> b n p c", c=channels)
     x = rearrange(
         x,
@@ -176,15 +175,39 @@ def apply_mask(x, ids_keep):
     return x_masked
 
 def save_video_frames(tensor, folder):
-    frames = tensor[0].permute(1, 0, 2, 3)  # (T, C, H, W)
-    frames = (frames * 255).clamp(0, 255).byte().permute(0, 2, 3, 1).cpu().numpy()  # (T, H, W, C)
+    """
+    Save video frame tensors as images. 
+    The tensor should have shape [1, C, T, H, W], with values in the range 0~1.
+    """
+    os.makedirs(folder, exist_ok=True)
+
+    if isinstance(tensor, torch.Tensor):
+        tensor = tensor.detach().cpu()
+
+    # tensor: [1, C, T, H, W] → [T, C, H, W]
+    frames = tensor.permute(0, 2, 1, 3, 4)[0]
+
     for i, frame in enumerate(frames):
-        cv2.imwrite(os.path.join(folder, f"frame_{i:02d}.png"), cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+        frame = frame.clamp(0, 1).numpy() * 255  # → (C, H, W)
+        frame = frame.astype(np.uint8).transpose(1, 2, 0)  # → (H, W, C)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(os.path.join(folder, f"frame_{i:02d}.png"), frame)
+
+def recover_from_mask_video(x_masked, ids_keep_expanded, original_shape):
+    """
+    根据掩蔽保留patch索引ids_keep_expanded把掩蔽后的x_masked恢复成原始形状，
+    未保留patch用0填充。
+    """
+    N, L, D = x_masked.shape[0], original_shape[1] * original_shape[2] * original_shape[3], original_shape[4]
+    x_recover = torch.zeros(N, L, D, device=x_masked.device)
+    for i in range(N):
+        x_recover[i, ids_keep_expanded[i]] = x_masked[i]
+    return x_recover
 
 def save_mask_video(video, ids_keep_expanded, save_dir_masked):
     x_patch = patchify_video(video)
     x_masked = apply_mask(x_patch, ids_keep_expanded)
-    x_recovered = recover_from_mask(
+    x_recovered = recover_from_mask_video(
     x_masked, ids_keep_expanded, (1, 8, 14, 14, x_patch.shape[2])
     )
     video_masked = unpatch_to_img(
@@ -195,15 +218,16 @@ def save_mask_video(video, ids_keep_expanded, save_dir_masked):
     save_video_frames(video_masked, save_dir_masked)
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MAE Visualization')
     parser.add_argument('--pretrain_path', type=str)
     parser.add_argument('--input_file', type=str)
     parser.add_argument('--output_root', type=str)
+    parser.add_argument("--audio_mask_ratio", type=float, default=0.8125, help="Audio masking ratio (default: 0.8125)")
+    parser.add_argument("--video_mask_ratio", type=float, default=0.9, help="Video masking ratio (default: 0.9)")
     args = parser.parse_args()
     
-    # ====================== step1: 输入数据预处理 ======================
+    # ====================== step1: Input preprocessing ======================
     input_file = args.input_file
     output_root = args.output_root
     file_name = os.path.splitext(os.path.basename(input_file))[0]
@@ -211,34 +235,35 @@ if __name__ == '__main__':
     os.makedirs(log_dir, exist_ok=True)
     print("log_dir:", log_dir)
 
-    # 将视频裁剪为3.2s
+    # Video preprocessing
+    print("Starting video preprocessing...")
+    # split video into 3.2s
     split, output_file = split_video(input_file = input_file)
-
     if not split:
         print("The input file is too short!!!")
         output_file = input_file
     
+    print("Starting uniform sampling of 16 frames from the video...")
     sample_frame_output_root = os.path.join(log_dir, 'sample_frames')
     os.makedirs(sample_frame_output_root, exist_ok=True)
     sample_video_uniform_16_decord(video_path=output_file, frame_output_root=sample_frame_output_root)
     
-    face_cropper = create_face_cropper()
+    face_cropper = create_face_cropper(scale=1.0)
 
     image_paths = sorted(glob(os.path.join(sample_frame_output_root, '*.png')) + glob(os.path.join(sample_frame_output_root, '*.jpg')))
 
     sample_face_output_root = os.path.join(log_dir, 'sample_faces')
     os.makedirs(sample_face_output_root, exist_ok=True)
 
-    # 提取人脸
+    print("Starting face cropping for sampled frames...")
     for frame_path in image_paths:
         frame_name = os.path.basename(frame_path)
         save_path = os.path.join(sample_face_output_root, frame_name)
         try:
             face_cropper.extract(frame_path, save_path)
         except Exception as e:
-            print(f"处理失败: {frame_path}，错误原因: {e}")
+            print(f"Failed to extract face from {frame_path}, error: {e}")
 
-    # 视频处理
     frames = []
 
     preprocess = T.Compose([T.Resize(size=(224, 224)), T.ToTensor()])
@@ -252,12 +277,18 @@ if __name__ == '__main__':
             print(f"Error loading frame {frame_path}: {e}")
             frame = torch.zeros(3, 224, 224)
         frames.append(frame)
-    frames = torch.stack(frames)  # 输出形状: [16, 3, H, W]
+    frames = torch.stack(frames)  # [16, 3, H, W]
     v_input = frames.permute(1, 0, 2, 3).unsqueeze(0) #[1, 3, 16, 224, 224]
 
-    # 音频处理
+    # Audio preprocessing
+    print("Starting audio preprocessing...")
     temp_audio_file = output_file.replace('.mp4', '.wav')
-    ffmpeg.input(output_file).output(temp_audio_file, ac=1, ar='16k').run(quiet=True)
+    ffmpeg.input(output_file).output(
+    temp_audio_file,
+    ac=1,
+    ar='16k'
+    ).run(quiet=True, overwrite_output=True, cmd=["ffmpeg", "-y"])
+    
     waveform, sr = torchaudio.load(temp_audio_file)
     waveform = waveform - waveform.mean()
 
@@ -275,16 +306,11 @@ if __name__ == '__main__':
 
     a_input = fbank.unsqueeze(0) # [1, 1024, 128]
 
-    # ===================== step2: 加载预训练模型 =======================
-    # 先构造模型并DataParallel包装（如果用的DataParallel）
-    model = HAVIC_PT()
-    if not isinstance(model, torch.nn.DataParallel):
-        model = torch.nn.DataParallel(model)
-
-    # 加载checkpoint路径
+    # ===================== step2: loading pre-trained model =======================
+    print("Loading pre-trained model...")
+    model = HAVIC_PT(audio_mask_ratio=args.audio_mask_ratio, video_mask_ratio=args.video_mask_ratio)
     pretrain_path = args.pretrain_path
 
-    # 安全检查
     checkpoint = torch.load(pretrain_path, map_location='cpu')
     model_dict = model.state_dict()
     pretrained_dict = {k: v for k, v in checkpoint.items() if k in model_dict and v.size() == model_dict[k].size()}
@@ -299,14 +325,16 @@ if __name__ == '__main__':
     model.to(device)
     model.eval()
 
-    # ======================= step3: 模型推理 ==========================
+    # ======================= step3: model forward ==========================
+    print("Running model forward pass...")
+    print(f"Audio mask ratio: {args.audio_mask_ratio}, Video mask ratio: {args.video_mask_ratio}")
     a_input = a_input.to(device, non_blocking=True)
     v_input = v_input.to(device, non_blocking=True)
     
     _, _, _, _, _, _, ids_keep_video, video_recon, ids_keep_audio, audio_recon = model(a_input, v_input)
 
-    # ==================== step4: 保存并展示结果 =========================
-    # 定义保存路径
+    # ==================== step4: save visualization results =========================
+    # saving directories for original, masked, and reconstructed frames
     origin_dir = os.path.join(log_dir, "origin_frames")
     mask_dir = os.path.join(log_dir, "mask_frames")
     recon_dir = os.path.join(log_dir, "reconstructed_frames")
@@ -314,32 +342,33 @@ if __name__ == '__main__':
     os.makedirs(mask_dir, exist_ok=True)
     os.makedirs(recon_dir, exist_ok=True)
 
-    # 原始梅尔谱图
+    # original Mel spectrogram
     plot_fbank(
         fbank=a_input[0].detach(),
         title="Original Mel Spectrogram",
-        save_path=os.path.join(log_dir, "origin_fbank.png")
+        save_path=os.path.join(log_dir, "origin_Mel_spectrogram.png")
     )
 
-    # 掩蔽后的梅尔谱图
+    # masked Mel spectrogram
     save_mask_audio(a_input, ids_keep_audio, output_path=log_dir)
     
-
-    # 重建后的梅尔谱图
+    # reconstructed Mel spectrogram
     plot_fbank(
         fbank=audio_recon[0].squeeze().T.detach(),  
         title="Reconstructed Mel Spectrogram",
-        save_path=os.path.join(log_dir, "reconstructed_fbank.png")
+        save_path=os.path.join(log_dir, "reconstructed_Mel_spectrogram.png")
     )
 
-    # 原始视频帧
-    save_video_frames(v_input[0].detach(), folder=origin_dir)
+    # original video frames
+    save_video_frames(v_input.detach(), folder=origin_dir)
     visualize_16_frames(folder=origin_dir, save_path=os.path.join(log_dir, "origin_frames.png"))
 
-    # 掩蔽后的视频帧
+    # masked video frames
     save_mask_video(v_input, ids_keep_video, mask_dir)
     visualize_16_frames(folder=mask_dir, save_path=os.path.join(log_dir, "mask_frames.png"))
 
-    # 重建后的视频帧
-    save_video_frames(video_recon[0].detach(), folder=recon_dir)
+    # reconstructed video frames
+    save_video_frames(video_recon.detach(), folder=recon_dir)
     visualize_16_frames(folder=recon_dir, save_path=os.path.join(log_dir, "recon_frames.png"))
+
+    print("Visualization completed. Results saved in:", log_dir)
