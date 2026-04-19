@@ -31,9 +31,13 @@ class HAVIC_PT(nn.Module):
                  norm_layer="LayerNorm",
                  init_values=0.,
                  tubelet_size=2,
+                 audio_mask_ratio=0.8125,
+                 video_mask_ratio=0.9,
                  ):
         super().__init__()
 
+        self.audio_mask_ratio = audio_mask_ratio
+        self.video_mask_ratio = video_mask_ratio
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -105,7 +109,8 @@ class HAVIC_PT(nn.Module):
         self.A2V = A2V_Decoder()
         self.V2A = V2A_Decoder()
 
-    def generate_tube_mask_indices(self, N, T=8, H=14, W=14, mask_ratio=0.9):
+    def generate_tube_mask_indices(self, N, T=8, H=14, W=14):
+        mask_ratio = self.video_mask_ratio
         device = self.device
         patches_per_frame = H * W
         L = T * patches_per_frame
@@ -123,9 +128,10 @@ class HAVIC_PT(nn.Module):
 
         return ids_keep
 
-    def generate_audio_mask_indices(self, N, L=512, mask_ratio=0.8125):
+    def generate_audio_mask_indices(self, N, L=512):
         device = self.device
         segment_len = L // 8
+        mask_ratio = self.audio_mask_ratio
         len_keep_per_segment = int(segment_len * (1 - mask_ratio))
 
         ids_keep_all = []
@@ -158,11 +164,7 @@ class HAVIC_PT(nn.Module):
         patch_tokens = emb[:, :, 1:, :]    # [B, 8, P, D]
 
         return cls_tokens, patch_tokens.reshape(B, -1, D)
-
-    def split_reg_and_patches(self, x, num_reg=8):
-        reg = x[:, :num_reg, :]
-        patches = x[:, num_reg:, :]
-        return reg, patches
+    
 
     def forward_mse_loss_audio(self, audio_input, audio_recon, ids_keep, p=16, all=False):
         """
@@ -200,7 +202,7 @@ class HAVIC_PT(nn.Module):
         """
         video:       [B, 3, 16, 224, 224]
         video_recon: [B, 3, 16, 224, 224]
-        ids_keep:    [B, num_keep_patches]，保留的patch索引
+        ids_keep:    [B, num_keep_patches],
 
         计算 MSE loss 仅在 **被mask** 的 patch 上。
         """
@@ -463,11 +465,10 @@ class HAVIC_PT(nn.Module):
         rec_loss_v = (rec_loss_v + rec_loss_v_3 + rec_loss_v_2 + rec_loss_v_1)/4
         rec_loss_a = (rec_loss_a + rec_loss_a_3 + rec_loss_a_2 + rec_loss_a_1)/4
 
-
-
-        # 返回: 1:音频重建损失、视频重建损失、对比学习损失、对比学习准确率
-        # 2: 保留的视频token索引序列（用于可视化mask视频图像），重建后的音频
-        # 3: 保留的音频token索引序列（用于可视化mask音频图像），重建后的音频
+        # Returns:
+        # 1: audio reconstruction loss, video reconstruction loss, contrastive loss, contrastive accuracy
+        # 2: indices of unmasked video tokens (for visualization), reconstructed video
+        # 3: indices of unmasked audio tokens (for visualization), reconstructed audio
         return rec_loss_v, rec_loss_a, nce_loss, c_acc,\
                trans_emb_loss_video, trans_emb_loss_audio, \
                ids_keep_video, video_recon, \
@@ -540,7 +541,7 @@ class HAVIC_FT(nn.Module):
                                     num_classes=1,
                                     drop_rates=[0., 0.])
                                 
-        self.classifier_video = FlexibleMLP(input_size=1 * encoder_embed_dim,
+        self.classifier_visual = FlexibleMLP(input_size=1 * encoder_embed_dim,
                                     hidden_sizes=[2 * encoder_embed_dim,
                                                     int(1 * encoder_embed_dim)],
                                     num_classes=1,
@@ -551,12 +552,12 @@ class HAVIC_FT(nn.Module):
         self.AudioTokenReducer_3 = TokenWise_TokenReducer()
         self.AudioTokenReducer_6 = TokenWise_TokenReducer()
         self.AudioTokenReducer_9 = TokenWise_TokenReducer()
+        self.AudioTokenReducer_12 = TokenWise_TokenReducer()
+
         self.VisualTokenReducer_3 = TokenWise_TokenReducer()
         self.VisualTokenReducer_6 = TokenWise_TokenReducer()
         self.VisualTokenReducer_9 = TokenWise_TokenReducer()
-
-        self.AudioTokenReducer_emb = TokenWise_TokenReducer()
-        self.VisualTokenReducer_emb = TokenWise_TokenReducer()
+        self.VisualTokenReducer_12 = TokenWise_TokenReducer()
 
         self.AudioTokenReducer_AVI = TokenWise_TokenReducer()
         self.VisualTokenReducer_AVI = TokenWise_TokenReducer()
@@ -564,8 +565,6 @@ class HAVIC_FT(nn.Module):
         self.pool_v = LearnableWeightedPool(num_layers=4)
         self.pool_a = LearnableWeightedPool(num_layers=4)
     
-        
-
     def split_cls_patch_tokens(self, emb, n_segments=8):
         B, L, D = emb.shape
         seg_len = L // n_segments
@@ -576,79 +575,74 @@ class HAVIC_FT(nn.Module):
 
         return cls_tokens, patch_tokens.reshape(B, -1, D)
 
-
     def forward(self, audio=None, video=None):
         # audio: (B, 1, 1024, 128)
         # video: (B, 3, 16, 224, 224)
 
-        # 特征提取
-        video_3, video_6, video_9, video_emb = self.visual_encoder(video, ids_keep=None, apply_cls_tokens=True, use_mask=False) # (B, 1568, 768) 
-        audio_3, audio_6, audio_9, audio_emb = self.audio_encoder(audio, ids_keep=None, apply_cls_tokens=True, use_mask=False) # (B, 512, 768)
+        # feature extraction
+        video_3, video_6, video_9, video_12 = self.visual_encoder(video, ids_keep=None, apply_cls_tokens=True, use_mask=False)
+        audio_3, audio_6, audio_9, audio_12 = self.audio_encoder(audio, ids_keep=None, apply_cls_tokens=True, use_mask=False)
 
-
-        # remove register tokens
-
-        video_cls_tokens_3, video_3 = self.split_cls_patch_tokens(video_3, n_segments=8) # (B, 8*14*14, 768)
+        # remove cls tokens
+        video_cls_tokens_3, video_3 = self.split_cls_patch_tokens(video_3, n_segments=8) 
         video_cls_tokens_6, video_6 = self.split_cls_patch_tokens(video_6, n_segments=8)
         video_cls_tokens_9, video_9 = self.split_cls_patch_tokens(video_9, n_segments=8)
+        video_cls_tokens_12, video_12 = self.split_cls_patch_tokens(video_12, n_segments=8) # shape: (B, 8, 768), (B, 1568, 768)
 
-        audio_cls_tokens_3, audio_3 = self.split_cls_patch_tokens(audio_3, n_segments=8) # (B, 8*64, 768)
+        audio_cls_tokens_3, audio_3 = self.split_cls_patch_tokens(audio_3, n_segments=8)
         audio_cls_tokens_6, audio_6 = self.split_cls_patch_tokens(audio_6, n_segments=8)
         audio_cls_tokens_9, audio_9 = self.split_cls_patch_tokens(audio_9, n_segments=8)
+        audio_cls_tokens_12, audio_12 = self.split_cls_patch_tokens(audio_12, n_segments=8)  # shape: (B, 8, 768), (B, 512, 768)
 
-        video_cls_tokens, video_emb = self.split_cls_patch_tokens(video_emb, n_segments=8) # (B, 8, 768), (B, 8*14*14, 768)
-        audio_cls_tokens, audio_emb = self.split_cls_patch_tokens(audio_emb, n_segments=8)
+        video_cls_tokens_12 = video_cls_tokens_12.unsqueeze(dim=2)  # (B, 8, 1, 768)
+        audio_cls_tokens_12 = audio_cls_tokens_12.unsqueeze(dim=2)  # (B, 8, 1, 768)
 
-        video_cls_tokens = video_cls_tokens.unsqueeze(dim=2)  # (B, 8, 1, 768)
-        audio_cls_tokens = audio_cls_tokens.unsqueeze(dim=2)  # (B, 8, 1, 768)
-
-        audio_3 = self.AudioTokenReducer_3(audio_3)
-        audio_6 = self.AudioTokenReducer_6(audio_6)
-        audio_9 = self.AudioTokenReducer_9(audio_9)
-        video_3 = self.VisualTokenReducer_3(video_3)
-        video_6 = self.VisualTokenReducer_6(video_6)
-        video_9 = self.VisualTokenReducer_9(video_9)
-        audio_emb_ = self.AudioTokenReducer_emb(audio_emb)
-        video_emb_ = self.VisualTokenReducer_emb(video_emb)
-
-        # 音视频交互
-        video_inter, audio_inter = self.AudioVisualInteractionModule(video_emb, audio_emb, video_cls_tokens = video_cls_tokens, audio_cls_tokens = audio_cls_tokens)
+        # audio-visual interaction
+        video_inter, audio_inter = self.AudioVisualInteractionModule(video_12, audio_12, video_cls_tokens = video_cls_tokens_12, audio_cls_tokens = audio_cls_tokens_12)
         
-        video_cls_tokens_after, video_inter = self.split_cls_patch_tokens(video_inter, n_segments=8) # (B, 8, 768), (B, 8*14*14, 768)     
-        audio_cls_tokens_after, audio_inter = self.split_cls_patch_tokens(audio_inter, n_segments=8) # (B, 8, 768), (B, 8*14*14, 768)      
+        _, video_inter = self.split_cls_patch_tokens(video_inter, n_segments=8) # shape: (B, 8, 768), (B, 1568, 768)    
+        _, audio_inter = self.split_cls_patch_tokens(audio_inter, n_segments=8) # shape: (B, 8, 768), (B, 512, 768)     
 
-        # 编码器多层次特征聚合
+        # adaptive aggregation
+        aggregated_audio_3 = self.AudioTokenReducer_3(audio_3) # shape: [B, 768]
+        aggregated_audio_6 = self.AudioTokenReducer_6(audio_6)
+        aggregated_audio_9 = self.AudioTokenReducer_9(audio_9)
+        aggregated_audio_12 = self.AudioTokenReducer_12(audio_12)
+        aggregated_video_inter = self.VisualTokenReducer_AVI(video_inter)
+
+        aggregated_video_3 = self.VisualTokenReducer_3(video_3) # shape: [B, 768]
+        aggregated_video_6 = self.VisualTokenReducer_6(video_6)
+        aggregated_video_9 = self.VisualTokenReducer_9(video_9)
+        aggregated_video_12 = self.VisualTokenReducer_12(video_12)
+        aggregated_audio_inter = self.AudioTokenReducer_AVI(audio_inter)
+
         audio_feats = torch.stack([
-            audio_3,
-            audio_6,
-            audio_9,
-            audio_emb_,
-        ], dim=1)  # shape: [B, 4, D]
+            aggregated_audio_3,
+            aggregated_audio_6,
+            aggregated_audio_9,
+            aggregated_audio_12,
+        ], dim=1)  # shape: [B, 4, 768]
 
         video_feats = torch.stack([
-            video_3,
-            video_6,
-            video_9,
-            video_emb_,
-        ], dim=1)  # shape: [B, 4, D]
+            aggregated_video_3,
+            aggregated_video_6,
+            aggregated_video_9,
+            aggregated_video_12,
+        ], dim=1)  # shape: [B, 4, 768]
 
-
-        # Learnable weighted pooling over encoder layers
-        audio_feats = self.pool_a(audio_feats)  # [B, D]
-        video_feats = self.pool_v(video_feats)  # [B, D]
-
-        audio_inter = self.AudioTokenReducer_AVI(audio_inter)
-        video_inter = self.VisualTokenReducer_AVI(video_inter)
+        # Learnable weighted pooling over 3/6/9/12 encoder layers
+        aggregated_audio_feats = self.pool_a(audio_feats)  # [B, 768]
+        aggregated_video_feats = self.pool_v(video_feats)  # [B, 768]
         
         # Final feature: concat crossmodal + unimodal feats    
-        final_feat = torch.cat([audio_feats, video_feats, audio_inter, video_inter], dim=1)  # [B, 4*D]        , audio_inter, video_inter
+        final_feat = torch.cat([aggregated_audio_feats, aggregated_video_feats, aggregated_audio_inter, aggregated_video_inter], dim=1)  # [B, 4*768] 
 
-        # task 1: unimodal classification
-        audio_real_or_fake = self.classifier_audio(audio_feats)  # [B, 1]
-        video_real_or_fake = self.classifier_video(video_feats)  # [B, 1]
-
-        # task2: overall classification
+        # overall classification
         overall_real_or_fake = self.classifier(final_feat)
+    
+        # auxiliary task: audio/visual classification
+        audio_real_or_fake = self.classifier_audio(aggregated_audio_feats)  # [B, 1]
+        video_real_or_fake = self.classifier_visual(aggregated_video_feats)  # [B, 1]
 
         return audio_real_or_fake, video_real_or_fake, overall_real_or_fake
 
@@ -674,26 +668,15 @@ class LearnableWeightedPool(nn.Module):
             raise ValueError(f"Unsupported input shape: {features.shape}")
         return weighted
 
-def init_weights(m):
-    """
-    初始化权重的通用函数：
-    - 对 nn.Linear 层使用 Xavier uniform 初始化
-    - 对 bias 使用 0 初始化
-    """
-    if isinstance(m, nn.Linear):
-        init.xavier_uniform_(m.weight)
-        if m.bias is not None:
-            init.zeros_(m.bias)
-
 class FlexibleMLP(nn.Module):
     def __init__(self, input_size, hidden_sizes, num_classes, drop_rates=None, activation_fn=nn.ReLU):
         """
-        参数说明：
-        - input_size: 输入特征维度，如 768
-        - hidden_sizes: 隐藏层大小列表，如 [512, 256]
-        - num_classes: 输出维度，如 1（二分类）
-        - drop_rates: 每层的 Dropout 概率列表，如 [0.1, 0.1]（长度必须与 hidden_sizes 相同）
-        - activation_fn: 激活函数类（默认是 nn.ReLU，可传 nn.LeakyReLU）
+        Arguments:
+        - input_size: input feature dimension, e.g., 768
+        - hidden_sizes: list of hidden layer sizes, e.g., [512, 256]
+        - num_classes: output dimension, e.g., 1 (binary classification)
+        - drop_rates: list of Dropout rates for each layer, e.g., [0.1, 0.1] (must match the length of hidden_sizes)
+        - activation_fn: activation function class (default: nn.ReLU, can be nn.LeakyReLU)
         """
         super(FlexibleMLP, self).__init__()
 
@@ -703,13 +686,13 @@ class FlexibleMLP(nn.Module):
 
         if drop_rates is None:
             drop_rates = [0.0] * len(hidden_sizes)
-        assert len(drop_rates) == len(hidden_sizes), "drop_rates 和 hidden_sizes 长度不一致"
+        assert len(drop_rates) == len(hidden_sizes), "drop_rates length must match hidden_sizes length"
 
         prev_size = input_size
         for hidden_size, drop_rate in zip(hidden_sizes, drop_rates):
             self.layers.append(nn.Linear(prev_size, hidden_size))
             self.dropouts.append(nn.Dropout(drop_rate))
-            self.activations.append(activation_fn())  # 动态创建激活函数实例
+            self.activations.append(activation_fn())
             prev_size = hidden_size
 
         self.output_layer = nn.Linear(prev_size, num_classes)
@@ -721,3 +704,14 @@ class FlexibleMLP(nn.Module):
             x = drop(x)
             x = act(x)
         return self.output_layer(x)
+
+def init_weights(m):
+    """
+    General function for weight initialization:
+    - Apply Xavier uniform initialization to nn.Linear layers
+    - Initialize biases to 0
+    """
+    if isinstance(m, nn.Linear):
+        init.xavier_uniform_(m.weight)
+        if m.bias is not None:
+            init.zeros_(m.bias)
