@@ -152,7 +152,7 @@ class AudioEncoder(nn.Module):
         x_masked = torch.gather(x, dim=1, index=index)  # [N, len_keep, D]
         return x_masked
 
-    def forward(self, audio, ids_keep=None, apply_cls_tokens=True, use_mask=False, use_hierarchical=None):
+    def forward(self, audio, ids_keep=None, apply_cls_tokens=True, use_hierarchical=None):
 
         if use_hierarchical is None:
             use_hierarchical = self.use_hierarchical
@@ -165,8 +165,6 @@ class AudioEncoder(nn.Module):
 
         if ids_keep is not None:
             audio_emb = self.apply_mask(audio_emb, ids_keep)
-
-        attn_mask = None
 
         if apply_cls_tokens:
             B = audio_emb.size(0)

@@ -87,7 +87,7 @@ class VisualEncoder(nn.Module):
         x_masked = torch.gather(x, dim=1, index=index)  # [B, len_keep, D]
         return x_masked
     
-    def forward(self, x, ids_keep=None, apply_cls_tokens=True, use_mask=False, use_hierarchical=None):
+    def forward(self, x, ids_keep=None, apply_cls_tokens=True, use_hierarchical=None):
 
         if use_hierarchical is None:
             use_hierarchical = self.use_hierarchical
@@ -99,8 +99,6 @@ class VisualEncoder(nn.Module):
         emb = self.pos_embedding(emb) 
         if ids_keep is not None:
             emb = self.apply_mask(emb, ids_keep)
-
-        attn_mask = None  # 默认无 mask
 
         # === 插入 cls tokens，并构造 attn_mask（可选） ===
         if apply_cls_tokens:
