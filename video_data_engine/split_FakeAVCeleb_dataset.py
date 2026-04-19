@@ -41,10 +41,28 @@ def parse_args():
 
 def collect_video_paths(dataset_root):
     """
-    Recursively collect all .mp4 video paths under dataset_root.
+    Collect all .mp4 video paths only from the four specified subdirectories.
     """
     dataset_root = Path(dataset_root)
-    return sorted(dataset_root.rglob("*.mp4"))
+
+    target_dirs = [
+        "RealVideo-RealAudio",
+        "RealVideo-FakeAudio",
+        "FakeVideo-RealAudio",
+        "FakeVideo-FakeAudio",
+    ]
+
+    video_paths = []
+
+    for sub_dir in target_dirs:
+        sub_path = dataset_root / sub_dir
+        if not sub_path.exists():
+            print(f"Warning: {sub_path} does not exist, skipping.")
+            continue
+
+        video_paths.extend(sub_path.rglob("*.mp4"))
+
+    return sorted(video_paths)
 
 
 def infer_labels_from_path(video_path: Path):

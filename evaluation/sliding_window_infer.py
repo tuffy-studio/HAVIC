@@ -43,7 +43,6 @@ import torchaudio
 import torch
 import torch.nn as nn
 import torchvision.transforms as T
-import torch.nn.functional as F
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -80,12 +79,15 @@ def parse_args():
         help="evaluation or inference mode"
     )
 
+    parser.add_argument(
+        "--verbose",
+        action='store_true',
+        help="Whether to print detailed logs during processing"
+    )
+
     # =========================== sliding window hyperparameters ===========================
     parser.add_argument("--window_size_frames", type=int, default=16)
     parser.add_argument("--window_stride_frames", type=int, default=2)
-    
-    parser.add_argument("--window_size_fbank", type=int, default=1024)
-    parser.add_argument("--window_stride_fbank", type=int, default=128)
 
     parser.add_argument("--max_time", type=int, default=10, help="Max processing time (seconds)")
     parser.add_argument("--max_workers", type=int, default=2, help="Number of workers")
@@ -97,15 +99,14 @@ csv_file_path = args.csv_file_path
 save_csv_path = args.save_csv_path
 mode = args.mode
 finetune_path = args.finetune_path
+verbose = args.verbose
 
 # Hyperparameters for sliding window
 WINDOW_SIZE_FRAMES = args.window_size_frames       # number of frames per window
 WINDOW_STRIDE_FRAMES = args.window_stride_frames      # stride in frames
-WINDOW_SIZE_FBANK = args.window_size_fbank      # corresponding audio length per window
-WINDOW_STRIDE_FBANK = args.window_stride_fbank     # corresponding audio stride
 
 MAX_TIME = args.max_time # seconds, max time to process for each video
-MAX_WORKERS = args.max_workers
+MAX_WORKERS = args.max_workers # number of processes to use for parallel processing
 # ---------------------------------------------------------------------------
 
 
@@ -179,7 +180,7 @@ def load_face_detection_model():
     return faceDetModelHandler
 
 class FaceX_Zoo_FaceCropper:
-    def __init__(self, faceDetModelHandler, scale=1.3):
+    def __init__(self, faceDetModelHandler, scale=1.0):
         self.faceDetModelHandler = faceDetModelHandler
         self.scale = scale
 
@@ -242,21 +243,22 @@ model = HAVIC_FT()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 state_dict = torch.load(finetune_path, map_location='cpu')
-if not isinstance(model, nn.DataParallel):
-    model = nn.DataParallel(model)
 missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False)
 print("[Load Weights Info] Missing keys:", missing_keys)
 print("[Load Weights Info] Unexpected keys:", unexpected_keys)
 model.eval().to(device)
 
+if not isinstance(model, nn.DataParallel):
+    model = nn.DataParallel(model)
+
 # 2.2 load face_cropper model
 face_detection_model = load_face_detection_model()
-face_cropper = FaceX_Zoo_FaceCropper(faceDetModelHandler=face_detection_model, scale=1.3)
+face_cropper = FaceX_Zoo_FaceCropper(faceDetModelHandler=face_detection_model, scale=1.0)
 
 from decord import VideoReader
 from decord import cpu
 
-# ---------------- helper: 单个视频推理 ----------------
+# ---------------- single video inference ----------------
 def process_single_video(index, row, mode):
     results = {}
     try:
@@ -360,11 +362,12 @@ def process_single_video(index, row, mode):
 
         audio_batch = torch.stack([f.to(device) for f in fbank_list])
         assert audio_batch.size(0) == video_batch.size(0), "batch size mismatch!"
-        print(f"{video_path}:\n video_batch {video_batch.shape}, audio_batch {audio_batch.shape}")
+        if verbose:
+            print(f"{video_path}:\n video_batch {video_batch.shape}, audio_batch {audio_batch.shape}")
 
         # ---------------- 2.3.4 model forward ----------------
         with torch.inference_mode(): # to accelerate inference, you can add torch.autocast("cuda")
-            audio_outputs, visual_outputs, output = model(audio=audio_batch, video=video_batch)
+            output = model(audio=audio_batch, video=video_batch, is_training=False)
 
         sample_level_pred = output.detach().cpu().mean(dim=0)
 
@@ -374,10 +377,11 @@ def process_single_video(index, row, mode):
                 results["overall_label"] = torch.tensor([int(overall_label)], dtype=torch.float32)
         results["video_path"] = video_path
 
-        if mode == "evaluation":
-            print(f"[{index+1}/{len(data)}] {video_path}: overall_label {overall_label}, overall_pred {sample_level_pred.numpy()}", flush=True)
-        else:
-            print(f"[{index+1}/{len(data)}] {video_path}: overall_pred {sample_level_pred.numpy()}", flush=True)
+        if verbose:
+            if mode == "evaluation":
+                print(f"[{index+1}/{len(data)}] {video_path}: overall_label {overall_label}, overall_pred {sample_level_pred.numpy()}", flush=True)
+            else:
+                print(f"[{index+1}/{len(data)}] {video_path}: overall_pred {sample_level_pred.numpy()}", flush=True)
         
         return results
 
@@ -385,7 +389,7 @@ def process_single_video(index, row, mode):
         print(f"[Error] {row['video_path']}: {e}")
         return None
 
-# ---------------- 3. 多线程执行 ----------------
+# ---------------- 3. multi processing ----------------
 csv_records = []
 all_overall_pred, all_overall_label = [], []
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:  # 改成你机器的CPU核心数
@@ -395,14 +399,13 @@ with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:  # 改成你机器
         if res is not None:
             # res: {"video_path": str,  "overall_label": tensor, "overall_pred": tensor}
             video_path = res["video_path"]
-            overall_pred = res["overall_pred"].item() if torch.is_tensor(res["overall_pred"]) else float(res["overall_pred"])
+            overall_pred = torch.sigmoid(res["overall_pred"]).item()
             all_overall_pred.append(overall_pred)
 
             if mode == "evaluation":
-                overall_label = int(res["overall_label"]) if not torch.is_tensor(res["overall_label"]) else int(res["overall_label"].item())
+                overall_label = int(res["overall_label"])
                 all_overall_label.append(overall_label)
 
-            
             # write into CSV
             if mode == "evaluation":
                 csv_records.append({
