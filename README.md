@@ -32,7 +32,8 @@
 ## Overview
 This repository contains the official implementation of [Leave No Stone Unturned: Uncovering Holistic Audio-Visual Intrinsic Coherence for Deepfake Detection](https://arxiv.org/abs/2603.23960). The proposed **HiFi-AVDF** dataset is available [here](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
 
-![alt text](assets/ptnft.png)
+![alt text](assets/poster.png)
+
 
 
 
