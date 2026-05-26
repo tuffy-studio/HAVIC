@@ -26,11 +26,11 @@
 - **[Feb 2026]** Our paper is accepted at CVPR 2026 Findings.
 - **[Mar 2026]** Our paper is available on arXiv: [https://arxiv.org/abs/2603.23960](https://arxiv.org/abs/2603.23960).
 - **[Apr 2026]** Model weights pre-trained on the LRS2 dataset are provided [here](https://huggingface.co/JielunPeng/HAVIC/).
-- **[Coming Soon]** We will release the model weights, and the HiFi-AVDF dataset ASAP. 
-- **⭐ Star us** to get notified when the weights and dataset are released!
+- **[May 2026]** HiFi-AVDF dataset is provided [here](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
+
 
 ## Overview
-This repository contains the official implementation of [Leave No Stone Unturned: Uncovering Holistic Audio-Visual Intrinsic Coherence for Deepfake Detection](https://arxiv.org/abs/2603.23960). The proposed **HiFi-AVDF** dataset will be available [here](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
+This repository contains the official implementation of [Leave No Stone Unturned: Uncovering Holistic Audio-Visual Intrinsic Coherence for Deepfake Detection](https://arxiv.org/abs/2603.23960). The proposed **HiFi-AVDF** dataset is available [here](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
 
 ![alt text](assets/ptnft.png)
 
@@ -68,7 +68,7 @@ We use the **FakeAVCeleb** dataset to finetune the model and evaluate intra-data
 To further evaluate the cross-dataset generalization of the model, we use **KoDF** and **HiFi-AVDF** dataset:
 
 * **KoDF official page**: [KoDF](https://deepbrainai-research.github.io/kodf/)
-* **HiFi-AVDF download page**: [HiFi-AVDF](#)
+* **HiFi-AVDF download page**: [HiFi-AVDF](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF)
 
 
 
