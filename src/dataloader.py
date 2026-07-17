@@ -306,7 +306,7 @@ class VideoAudioDataset_Finetuning(Dataset):
                 print("!!!There is an error in loading audio:")
                 print(f"Error in loading audio or computing fbank: {e}")
 
-            frames = self._get_frames_eval(face_crop_folder)
+            frames = self._get_frames(face_crop_folder)
 
         # train mode
         else:
@@ -397,7 +397,7 @@ class Visual_Preprocess:
 
         # ---------- 2. 采样一次随机参数 ----------
 
-        do_flip = random.random() < 0.5   # 你可以调成 0.2~0.3
+        do_flip = random.random() < 0.5 
 
         # RandomResizedCrop
         i, j, h, w = T.RandomResizedCrop.get_params(

@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch.cuda.amp import autocast, GradScaler
+from tqdm import tqdm
 
 #torch.autograd.set_detect_anomaly(True)# If True, enables anomaly detection for debugging gradient explosion, but slows training
 
@@ -104,6 +105,10 @@ def train(model, train_loader, test_loader, args, verbose=True):
     use_amp = True   # True = 使用混合精度 (autocast + GradScaler)，False = 全精度 FP32
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)  # 如果 use_amp=False，scaler 不会起作用
 
+    # 用于收集训练集预测和标签，计算训练指标
+    train_A_predictions, train_A_audio_predictions, train_A_video_predictions = [], [], []
+    train_A_targets, train_A_audio_targets, train_A_video_targets = [], [], []
+
     # ========================= TRAIN LOOP =========================
     while epoch < args.n_epochs + 1:
         begin_time = time.time()
@@ -126,8 +131,7 @@ def train(model, train_loader, test_loader, args, verbose=True):
             audio_labels = audio_labels.to(device)
             video_labels = video_labels.to(device)
             labels = labels.to(device)
-            
-            
+                   
             data_time.update(time.time() - end_time)
             per_sample_data_time.update((time.time() - end_time) / B)
             dnn_start_time = time.time()
@@ -192,11 +196,69 @@ def train(model, train_loader, test_loader, args, verbose=True):
                     print("training diverged...")
                     return
 
+            # 收集训练集预测和标签
+            train_A_predictions.append(outputs.to('cpu').detach())
+            train_A_audio_predictions.append(audio_outputs.to('cpu').detach())
+            train_A_video_predictions.append(video_outputs.to('cpu').detach())
+            train_A_targets.append(labels.to('cpu').detach())
+            train_A_audio_targets.append(audio_labels.to('cpu').detach())
+            train_A_video_targets.append(video_labels.to('cpu').detach())
+
             end_time = time.time()
             global_step += 1
         
         if args.save_model == True:
-            torch.save(model.state_dict(), "%s/models/ft_model.%d.pth" % (exp_dir, epoch))
+            torch.save(model.module.state_dict(), "%s/models/ft_model.%d.pth" % (exp_dir, epoch))
+        
+        #========================================训练集指标计算=================================
+        print('calculate training metrics')
+        
+        train_output = torch.cat(train_A_predictions)
+        train_audio_output = torch.cat(train_A_audio_predictions)
+        train_video_output = torch.cat(train_A_video_predictions)
+        train_target = torch.cat(train_A_targets)
+        train_audio_target = torch.cat(train_A_audio_targets)
+        train_video_target = torch.cat(train_A_video_targets)
+
+        train_target = train_target.unsqueeze(1)
+        train_audio_target = train_audio_target.unsqueeze(1)
+        train_video_target = train_video_target.unsqueeze(1)
+
+        train_stats = calculate_stats(torch.sigmoid(train_output).cpu(), train_target.cpu())
+        train_stats_audio = calculate_stats(torch.sigmoid(train_audio_output).cpu(), train_audio_target.cpu())
+        train_stats_video = calculate_stats(torch.sigmoid(train_video_output).cpu(), train_video_target.cpu())
+
+        train_ap = train_stats[0]['ap']
+        train_auc = train_stats[0]['auc']
+        train_acc = train_stats[0]['acc']
+        train_audio_ap = train_stats_audio[0]['ap']
+        train_audio_auc = train_stats_audio[0]['auc']
+        train_audio_acc = train_stats_audio[0]['acc']
+        train_video_ap = train_stats_video[0]['ap']
+        train_video_auc = train_stats_video[0]['auc']
+        train_video_acc = train_stats_video[0]['acc']
+
+        # 打印训练集结果
+        print("============================================")
+        print(f"Training metrics epoch: {epoch} ")
+        print("Train ACC: {:.6f}".format(train_acc))
+        print("Train AUC: {:.6f}".format(train_auc))
+        print("Train AP: {:.6f}".format(train_ap))
+        print("Train Audio ACC: {:.6f}".format(train_audio_acc))
+        print("Train Audio AUC: {:.6f}".format(train_audio_auc))
+        print("Train Audio AP: {:.6f}".format(train_audio_ap))
+        print("Train Video ACC: {:.6f}".format(train_video_acc))
+        print("Train Video AUC: {:.6f}".format(train_video_auc))
+        print("Train Video AP: {:.6f}".format(train_video_ap))
+        print("============================================")
+
+        # 清空训练集收集的列表，准备下一个 epoch
+        train_A_predictions.clear()
+        train_A_audio_predictions.clear()
+        train_A_video_predictions.clear()
+        train_A_targets.clear()
+        train_A_audio_targets.clear()
+        train_A_video_targets.clear()
         
         #========================================模型验证=================================
         print('start validation')
@@ -251,6 +313,17 @@ def train(model, train_loader, test_loader, args, verbose=True):
         save_data(f"{log_dir}/video_AP.csv", epoch=epoch, data=video_ap, data_name="video_ap")
         save_data(f"{log_dir}/video_ACC.csv", epoch=epoch, data=video_acc, data_name="video_acc")
         save_data(f"{log_dir}/video_AUC.csv", epoch=epoch, data=video_auc, data_name="video_auc")
+
+        # 保存训练集评估指标到 CSV
+        save_data(f"{log_dir}/train_AP.csv", epoch=epoch, data=train_ap, data_name="train_ap")
+        save_data(f"{log_dir}/train_ACC.csv", epoch=epoch, data=train_acc, data_name="train_acc")
+        save_data(f"{log_dir}/train_AUC.csv", epoch=epoch, data=train_auc, data_name="train_auc")
+        save_data(f"{log_dir}/train_audio_AP.csv", epoch=epoch, data=train_audio_ap, data_name="train_audio_ap")
+        save_data(f"{log_dir}/train_audio_ACC.csv", epoch=epoch, data=train_audio_acc, data_name="train_audio_acc")
+        save_data(f"{log_dir}/train_audio_AUC.csv", epoch=epoch, data=train_audio_auc, data_name="train_audio_auc")
+        save_data(f"{log_dir}/train_video_AP.csv", epoch=epoch, data=train_video_ap, data_name="train_video_ap")
+        save_data(f"{log_dir}/train_video_ACC.csv", epoch=epoch, data=train_video_acc, data_name="train_video_acc")
+        save_data(f"{log_dir}/train_video_AUC.csv", epoch=epoch, data=train_video_auc, data_name="train_video_auc")
         
         if auc > best_auc:
             best_epoch = epoch
@@ -263,7 +336,7 @@ def train(model, train_loader, test_loader, args, verbose=True):
 
         # 保存模型参数
         if best_epoch == epoch:
-            torch.save(model.state_dict(), "%s/models/best_ft_model.pth" % (exp_dir))
+            torch.save(model.module.state_dict(), "%s/models/best_ft_model.pth" % (exp_dir))
             
         print('Epoch {0} learning rate: {1}'.format(epoch, optimizer.param_groups[0]['lr']))
         
@@ -301,7 +374,7 @@ def validate(model, test_loader, verbose=True):
     av_loss_meter, a_loss_meter, v_loss_meter = [], [], []
 
     with torch.no_grad():
-        for i, (a_input, v_input, audio_labels, video_labels, labels) in enumerate(test_loader):
+        for i, (a_input, v_input, audio_labels, video_labels, labels) in enumerate(tqdm(test_loader, total=len(test_loader), desc="Validating")):
             a_input = a_input.to(device)
             v_input = v_input.to(device)
             if verbose == True:
@@ -316,9 +389,7 @@ def validate(model, test_loader, verbose=True):
             video_labels = video_labels.to(device)
             labels = labels.to(device)
  
-
             with autocast(enabled=False):
-
                 audio_outputs, video_outputs, outputs = model(a_input, v_input)
 
                 audio_weights = get_bce_weights(audio_labels.to(device), neg_weight=1.0)
@@ -328,7 +399,6 @@ def validate(model, test_loader, verbose=True):
                 audio_loss = (BCE_loss_fn(audio_outputs, audio_labels.unsqueeze(-1)) * audio_weights).mean()
                 video_loss = (BCE_loss_fn(video_outputs, video_labels.unsqueeze(-1)) * video_weights).mean()
                 av_loss = (BCE_loss_fn(outputs, labels.unsqueeze(-1)) * weights).mean()
-
 
                 loss = av_loss + audio_loss + video_loss
 
