@@ -56,7 +56,6 @@ class TokenWise_TokenReducer(nn.Module):
         super().__init__()
         self.mlp = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            #nn.Dropout(0.5),
             nn.ReLU(),
             nn.Linear(hidden_dim, 1)
         )

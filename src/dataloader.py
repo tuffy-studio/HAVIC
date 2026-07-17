@@ -22,22 +22,26 @@ import torchvision.transforms.functional as F
 # Video: frames, audio: fbank
 class VideoAudioDataset_Pretraining(Dataset):
     def __init__(self, csv_file, conf, num_frames=16):
-        self.num_frames = num_frames
-
+        self.conf = conf  
+        # train or eval
+        self.mode = self.conf.get('mode')
+        print(f'================ {self.mode} mode information =================')
+        
         self.data = []
         with open(csv_file, 'r') as file:
             reader = csv.reader(file)
             next(reader)  # 跳过 CSV 文件的第一行(表头: video_name,target)
             for row in reader:
                 self.data.append(row)
-        print(f'According to the csv file, dataset has {len(self.data)} samples')
+        print(f'According to the csv file, dataset has {len(self.data)} {self.mode} samples')
 
+        self.num_frames = num_frames
         self.num_samples = len(self.data)
-        self.conf = conf
         self.melbins = self.conf.get('num_mel_bins')  # dictionary.get(key, default=None)
 
         self.norm_mean = self.conf.get('mean')
         self.norm_std = self.conf.get('std')
+
 
         # set it as True ONLY when you are getting the normalization stats.
         self.skip_norm = self.conf.get('skip_norm') if self.conf.get('skip_norm') else False
@@ -49,9 +53,6 @@ class VideoAudioDataset_Pretraining(Dataset):
 
         self.target_length = self.conf.get('target_length')
 
-        # train or eval
-        self.mode = self.conf.get('mode')
-        print('now in {:s} mode.'.format(self.mode))
 
         # by default, all models use 224*224, other resolutions are not tested
         self.im_res = self.conf.get('im_res', 224)
@@ -156,15 +157,19 @@ class VideoAudioDataset_Pretraining(Dataset):
 # Video: frames, audio: fbank, audio_label, video_label, overall_label
 class VideoAudioDataset_Finetuning(Dataset):
     def __init__(self, csv_file, conf, num_frames=16):
-        self.num_frames = num_frames
+        self.conf = conf
+        # train or eval
+        self.mode = self.conf.get('mode')
+        print(f'================ {self.mode} mode information =================')
 
+        self.num_frames = num_frames
         self.data = []
         with open(csv_file, 'r') as file:
             reader = csv.reader(file)
             next(reader)  # 跳过 CSV 文件的第一行(表头: video_name,target)
             for row in reader:
                 self.data.append(row)
-        print(f'According to the csv file, dataset has {len(self.data)} samples')
+        print(f'According to the csv file, dataset has {len(self.data)} {self.mode} samples')
 
         self.labels = [int(row[-1]) for row in self.data]
         self.video_labels = [int(row[-2]) for row in self.data]
@@ -174,7 +179,6 @@ class VideoAudioDataset_Finetuning(Dataset):
         self.comb_labels = [a*2 + v for a, v in zip(self.audio_labels, self.video_labels)]
 
         self.num_samples = len(self.data)
-        self.conf = conf
         self.melbins = self.conf.get('num_mel_bins')  # dictionary.get(key, default=None)
 
         self.visual_augment = self.conf.get('visual_augment')
@@ -204,10 +208,6 @@ class VideoAudioDataset_Finetuning(Dataset):
                 'use dataset mean {:.3f} and std {:.3f} to normalize the input.'.format(self.norm_mean, self.norm_std))
 
         self.target_length = self.conf.get('target_length')
-
-        # train or eval
-        self.mode = self.conf.get('mode')
-        print('now in {:s} mode.'.format(self.mode))
 
         # by default, all models use 224*224, other resolutions are not tested
         self.im_res = self.conf.get('im_res', 224)
@@ -344,17 +344,9 @@ class VideoAudioDataset_Finetuning(Dataset):
         # frames: (T, C, H, W) -> (C, T, H, W)
         frames = frames.permute(1, 0, 2, 3)
 
-        # label = torch.tensor([int(label), 1-int(label)]).float()
-        classify_loss = "BCE"
-        if classify_loss == "BCE":
-            label = torch.tensor(int(label), dtype=torch.float32)   # 确保label是浮点数
-            audio_label = torch.tensor(int(audio_label), dtype=torch.float32) 
-            video_label = torch.tensor(int(video_label), dtype=torch.float32)
-        else: # CE loss
-            label = torch.tensor(int(label), dtype=torch.long)  # 确保label是整数
-            audio_label = torch.tensor(int(audio_label), dtype=torch.long)
-            video_label = torch.tensor(int(video_label), dtype=torch.long)
-
+        label = torch.tensor(int(label), dtype=torch.float32)   # 确保label是浮点数
+        audio_label = torch.tensor(int(audio_label), dtype=torch.float32) 
+        video_label = torch.tensor(int(video_label), dtype=torch.float32)
 
         return fbank, frames, audio_label, video_label, label
     

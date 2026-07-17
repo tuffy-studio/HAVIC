@@ -202,7 +202,7 @@ def train(model, train_loader, test_loader, args, verbose=True):
         print('start validation')
         
         stats, stats_audio, stats_video, valid_loss, valid_av_loss, valid_a_loss, valid_v_loss = \
-        validate(model, test_loader)
+        validate(model, test_loader, verbose=verbose)
 
         ap = stats[0]['ap']
         auc = stats[0]['auc']

@@ -533,19 +533,19 @@ class HAVIC_FT(nn.Module):
                                       hidden_sizes=[2 * encoder_embed_dim,
                                                     1 * encoder_embed_dim],
                                       num_classes=1,
-                                      drop_rates=[0., 0.])
+                                      drop_rates=[0.1, 0.2])
         
         self.classifier_audio = FlexibleMLP(input_size=1 * encoder_embed_dim,
                                     hidden_sizes=[2 * encoder_embed_dim,
                                                     int(1 * encoder_embed_dim)],
                                     num_classes=1,
-                                    drop_rates=[0., 0.])
+                                    drop_rates=[0.1, 0.2])
                                 
         self.classifier_visual = FlexibleMLP(input_size=1 * encoder_embed_dim,
                                     hidden_sizes=[2 * encoder_embed_dim,
                                                     int(1 * encoder_embed_dim)],
                                     num_classes=1,
-                                    drop_rates=[0., 0.])
+                                    drop_rates=[0.1, 0.2])
 
         self.AudioVisualInteractionModule = AudioVisualInteractionModule(num_layers=1)
 

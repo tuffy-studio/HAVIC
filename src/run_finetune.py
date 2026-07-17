@@ -18,7 +18,7 @@ parser.add_argument('--num_workers', default=4, type=int, help='number of worker
 parser.add_argument('--lr', default=0.00001, type=float, help='learning rate')
 parser.add_argument('--head_lr', type=float, default=10.0, help='Factor to scale learning rate for new added parts')
 
-parser.add_argument('--n-epochs', default=50, type=int, help='number of epochs')
+parser.add_argument('--n_epochs', default=50, type=int, help='number of epochs')
 parser.add_argument('--save_dir', default='checkpoints', type=str, help='directory to save checkpoints')
 parser.add_argument('--pretrain_path', default=None, type=str, help='path to pretrain model')
 
@@ -28,6 +28,7 @@ parser.add_argument('--visual_augment', action='store_true', help='Using visual 
 parser.add_argument('--weighted_sampling', action='store_true', help='Use weighted sampling')
 
 parser.add_argument("--n_print_steps", default=100, type=int)
+parser.add_argument('--verbose', action='store_true', help='Enable verbose printing during training and validation')
 
 parser.add_argument('--freqm', help='frequency mask max length', type=int, default=0)
 parser.add_argument('--timem', help='time mask max length', type=int, default=0)
@@ -76,4 +77,4 @@ if not os.path.exists(args.save_dir):
 
 # Train model
 print("Now start training for %d epochs"%args.n_epochs)
-train(ft_model, train_loader, val_loader, args)
+train(ft_model, train_loader, val_loader, args, verbose=args.verbose)

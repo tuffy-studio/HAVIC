@@ -11,7 +11,7 @@ from src.models.HAVIC import HAVIC_PT
 # ─────────────────────────────────────────────
 AUDIOMAE_PATH = "pretrained.pth"
 MARLIN_PATH   = "marlin_vit_base_ytf.full.pt"
-OUTPUT_PATH   = "./weights/model_to_be_pt.pth"
+OUTPUT_PATH   = "model_to_be_pt.pth"
 
 
 # ─────────────────────────────────────────────

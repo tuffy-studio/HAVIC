@@ -8,8 +8,8 @@ from src.models.HAVIC import *
 from collections import OrderedDict
 
 
-input_weight_path = "./pt_model.200.pth" # path to the pretrained model weights
-output_weight_path = "./model_to_be_ft.pth" # path to save the initialized finetuning weights (after remapping and filtering)
+input_weight_path = "pt_model.200.pth" # path to the pretrained model weights
+output_weight_path = "model_to_be_ft.pth" # path to save the initialized finetuning weights (after remapping and filtering)
 
 pt_weight = torch.load(input_weight_path)
 

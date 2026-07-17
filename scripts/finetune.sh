@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==================== Paths ====================
-pretrain_path="./weights/model_to_be_ft.pth"
+pretrain_path="../weights/model_to_be_ft.pth"
 tr_data=   
 te_data=    
 save_dir=
@@ -16,13 +16,14 @@ n_epochs=50
 batch_size=32
 num_workers=2
 n_print_steps=100
-weighted_sampling=False
+verbose=True
 
 dataset_mean=-6.9960
 dataset_std=3.1205
 target_length=1024
 freqm=20
 timem=100
+weighted_sampling=False
 audio_augment=True
 visual_augment=True
 
@@ -47,4 +48,5 @@ python -W ignore ../src/run_finetune.py \
     $( [ "$visual_augment" = "True" ] && echo "--visual_augment" ) \
     $( [ "$audio_augment" = "True" ] && echo "--audio_augment" ) \
     $( [ "$save_model" = "True" ] && echo "--save_model" ) \
+    $( [ "$verbose" = "True" ] && echo "--verbose" ) \
     --pretrain_path ${pretrain_path}
