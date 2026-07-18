@@ -173,7 +173,7 @@ def load_face_detection_model():
 
     faceDetModelLoader = FaceDetModelLoader(model_path, model_category, model_name, meta_file="model_meta.json")
     model, cfg = faceDetModelLoader.load_model()
-    faceDetModelHandler = FaceDetModelHandler(model, 'cuda:5', cfg)
+    faceDetModelHandler = FaceDetModelHandler(model, 'cuda:0', cfg)
     
     if faceDetModelHandler is not None and faceDetModelLoader is not None:
         print("Face detection model loaded successfully.")
@@ -437,9 +437,6 @@ if mode == "evaluation":
     overall_label  = torch.tensor(all_overall_label, dtype=torch.float32) # [N,1]
 
     overall_label = overall_label.unsqueeze(1)
-    stats = calculate_stats(torch.sigmoid(overall_output).cpu(), overall_label.cpu())
+    stats = calculate_stats(overall_output.cpu(), overall_label.cpu())
 
     print(f"ACC: {stats['ACC']:.4f}, AP: {stats['AP']:.4f}, AUC: {stats['AUC']:.4f}")
-
-
-
