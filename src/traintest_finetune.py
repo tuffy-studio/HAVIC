@@ -81,24 +81,25 @@ def train(model, train_loader, test_loader, args, verbose=True):
     
 
     # Cosine annealing warm restart scheduler
+    scheduler_T0 = args.scheduler_T0
     if args.scheduler_mode == 'iter':
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer,
-            T_0=10 * len(train_loader),  # first cycle: 10 epochs worth of batches
+            T_0=scheduler_T0 * len(train_loader),  # scheduler_T0 epochs worth of batches
             T_mult=1,      # cycle length multiplier
             eta_min=1e-9,  # minimum learning rate (avoid reaching zero)
             last_epoch=-1
         )
-        print(f"Using iter-based scheduler, T_0={10 * len(train_loader)} batches")
+        print(f"Using iter-based scheduler, T_0={scheduler_T0 * len(train_loader)} batches ({scheduler_T0} epochs)")
     else:
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer,
-            T_0=10,        # first cycle: 10 epochs
+            T_0=scheduler_T0,        # first cycle: scheduler_T0 epochs
             T_mult=1,      # cycle length multiplier
             eta_min=1e-9,  # minimum learning rate (avoid reaching zero)
             last_epoch=-1
         )
-        print(f"Using epoch-based scheduler, T_0=10 epochs")
+        print(f"Using epoch-based scheduler, T_0={scheduler_T0} epochs")
     
     # BCE loss
     BCE_loss_fn = nn.BCEWithLogitsLoss(reduction='none') 
@@ -198,13 +199,22 @@ def train(model, train_loader, test_loader, args, verbose=True):
             per_sample_dnn_time.update((time.time() - dnn_start_time)/a_input.shape[0])
 
             if i % args.n_print_steps == 0:
-                print('Epoch: [{0}][{1}/{2}]\t'
-                  'Per Sample Total Time {per_sample_time.avg:.5f}\t'
-                  'Per Sample Data Time {per_sample_data_time.avg:.5f}\t'
-                  'Per Sample DNN Time {per_sample_dnn_time.avg:.5f}\t'
-                  'Train Loss {loss_meter.val:.4f}\t'.format(
-                   epoch, i, len(train_loader), per_sample_time=per_sample_time, per_sample_data_time=per_sample_data_time,
-                      per_sample_dnn_time=per_sample_dnn_time, loss_meter=loss_meter), flush=True)
+                current_base_lr = optimizer.param_groups[0]['lr']
+                current_head_lr = optimizer.param_groups[1]['lr']
+                elapsed = time.time() - begin_time
+                eta_seconds = elapsed * (len(train_loader) - i - 1) / (i + 1) if i > 0 else 0
+                eta_h, rem = divmod(int(eta_seconds), 3600)
+                eta_m, eta_s = divmod(rem, 60)
+                eta_str = f'{eta_h:02d}:{eta_m:02d}:{eta_s:02d}'
+                print(f'Epoch: [{epoch}][{i}/{len(train_loader)}]\n'
+                  f'  Base LR {current_base_lr:.2e}  Head LR {current_head_lr:.2e}  ETA {eta_str}\n'
+                  f'  Per Sample Total Time {per_sample_time.avg:.5f}  '
+                  f'Per Sample Data Time {per_sample_data_time.avg:.5f}  '
+                  f'Per Sample DNN Time {per_sample_dnn_time.avg:.5f}\n'
+                  f'  Total Loss {loss_meter.val:.4f} (AVG: {loss_meter.avg:.4f})  '
+                  f'Overall Loss {av_loss_meter.val:.4f} (AVG: {av_loss_meter.avg:.4f})  '
+                  f'Audio Loss {a_loss_meter.val:.4f} (AVG: {a_loss_meter.avg:.4f})  '
+                  f'Video Loss {v_loss_meter.val:.4f} (AVG: {v_loss_meter.avg:.4f})', flush=True)
             
                 if np.isnan(loss_meter.avg):
                     print("training diverged...")
@@ -419,7 +429,7 @@ def validate(model, test_loader, verbose=True):
             video_predictions = video_outputs.to('cpu').detach()
 
             if verbose == True:
-                print(f"av_loss: {av_loss}")
+                print(f"overall_loss: {av_loss}")
                 print(f"audio_loss: {audio_loss}, video_loss: {video_loss}")
                 print(f"outputs: {predictions}")
                 print(f"audio_outputs:{audio_predictions}")
