@@ -1,4 +1,4 @@
-finetune_path="../weights/ft_model.50.pth"
+finetune_path=" " # TODO
 csv_file_path=" " # TODO
 save_csv_path="./swi_result.csv"
 mode="evaluation" # Set to "evaluation" for evaluation mode, or "inference" for inference mode. In evaluation mode, the script will compute metrics. In inference mode, it will only generate predictions without computing metrics.

@@ -48,9 +48,11 @@ def train(model, train_loader, test_loader, args, verbose=True):
     av_loss_meter, a_loss_meter, v_loss_meter = AverageMeter(), AverageMeter(), AverageMeter()
 
     best_epoch, best_auc, best_acc = 0, -np.inf, -np.inf
-    global_step, epoch = 1, 1
+    epoch = 1
     start_time = time.time()
     exp_dir = args.save_dir
+    accumulation_steps = args.accumulation_steps
+    print(f"Using accumulation steps: {accumulation_steps}, effective batch size: {args.batch_size * accumulation_steps}")
     
     if not isinstance(model, torch.nn.DataParallel):
         model = torch.nn.DataParallel(model)
@@ -79,18 +81,29 @@ def train(model, train_loader, test_loader, args, verbose=True):
     
 
     # Cosine annealing warm restart scheduler
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0=10,        # first cycle: 10 epochs
-        T_mult=1,      # cycle length multiplier
-        eta_min=1e-9,  # minimum learning rate (avoid reaching zero)
-        last_epoch=-1
-    )
+    if args.scheduler_mode == 'iter':
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=10 * len(train_loader),  # first cycle: 10 epochs worth of batches
+            T_mult=1,      # cycle length multiplier
+            eta_min=1e-9,  # minimum learning rate (avoid reaching zero)
+            last_epoch=-1
+        )
+        print(f"Using iter-based scheduler, T_0={10 * len(train_loader)} batches")
+    else:
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=10,        # first cycle: 10 epochs
+            T_mult=1,      # cycle length multiplier
+            eta_min=1e-9,  # minimum learning rate (avoid reaching zero)
+            last_epoch=-1
+        )
+        print(f"Using epoch-based scheduler, T_0=10 epochs")
     
     # BCE loss
     BCE_loss_fn = nn.BCEWithLogitsLoss(reduction='none') 
 
-    print("current #steps=%s, #epochs=%s" % (global_step, epoch))
+    print("current #epochs=%s" % epoch)
     print("start training...") 
     model.train()
 
@@ -116,7 +129,7 @@ def train(model, train_loader, test_loader, args, verbose=True):
         model.train()
         print('---------------')
         print(datetime.datetime.now())
-        print("current #epochs=%s, #steps=%s" % (epoch, global_step))
+        print("current #epochs=%s" % epoch)
         
         for i, (a_input, v_input, audio_labels, video_labels, labels) in enumerate(train_loader):
             assert a_input.shape[0] == v_input.shape[0]
@@ -147,6 +160,7 @@ def train(model, train_loader, test_loader, args, verbose=True):
                 av_loss = (BCE_loss_fn(outputs, labels.unsqueeze(-1)) * weights).mean()
 
                 loss = av_loss + audio_loss + video_loss
+                accumulation_loss = loss / accumulation_steps
                 
                 if verbose == True:
                     print(f"av_loss: {av_loss}")
@@ -155,20 +169,24 @@ def train(model, train_loader, test_loader, args, verbose=True):
                     print(f"audio_outputs: {torch.sigmoid(audio_outputs).cpu().detach()}")
                     print(f"video_outputs: {torch.sigmoid(video_outputs).cpu().detach()}")
 
-            scaler.scale(loss).backward()
+            scaler.scale(accumulation_loss).backward()
             
-            # === 添加梯度裁剪 ===
-            scaler.unscale_(optimizer) 
-            torch.nn.utils.clip_grad_norm_(model.module.parameters(), max_norm=1.0)
-            # ====================
+            if (i + 1) % accumulation_steps == 0 or (i + 1 == len(train_loader)):
+                # === 添加梯度裁剪 ===
+                scaler.unscale_(optimizer) 
+                torch.nn.utils.clip_grad_norm_(model.module.parameters(), max_norm=1.0)
+                # ====================
 
-            # 使用 GradScaler 更新参数
-            scaler.step(optimizer)
+                # 使用 GradScaler 更新参数
+                scaler.step(optimizer)
 
-            # 更新 GradScaler 的状态
-            scaler.update()
+                # 更新 GradScaler 的状态
+                scaler.update()
 
-            optimizer.zero_grad()
+                optimizer.zero_grad()
+            
+            if args.scheduler_mode == 'iter':
+                scheduler.step()
             
             loss_meter.update(loss.item(), B)
             av_loss_meter.update(av_loss.item(), B)
@@ -179,11 +197,7 @@ def train(model, train_loader, test_loader, args, verbose=True):
             per_sample_time.update((time.time() - end_time)/a_input.shape[0])
             per_sample_dnn_time.update((time.time() - dnn_start_time)/a_input.shape[0])
 
-            print_step = global_step % args.n_print_steps == 0
-            early_print_step = epoch == 0 and global_step % (args.n_print_steps/10) == 0
-            print_step = print_step or early_print_step
-
-            if print_step and global_step != 0:
+            if i % args.n_print_steps == 0:
                 print('Epoch: [{0}][{1}/{2}]\t'
                   'Per Sample Total Time {per_sample_time.avg:.5f}\t'
                   'Per Sample Data Time {per_sample_data_time.avg:.5f}\t'
@@ -205,7 +219,6 @@ def train(model, train_loader, test_loader, args, verbose=True):
             train_A_video_targets.append(video_labels.to('cpu').detach())
 
             end_time = time.time()
-            global_step += 1
         
         if args.save_model == True:
             torch.save(model.module.state_dict(), "%s/models/ft_model.%d.pth" % (exp_dir, epoch))
@@ -350,7 +363,8 @@ def train(model, train_loader, test_loader, args, verbose=True):
         per_sample_dnn_time.reset()
         loss_meter.reset()
 
-        scheduler.step()
+        if args.scheduler_mode == 'epoch':
+            scheduler.step()
 
         epoch += 1
 
@@ -358,9 +372,7 @@ def validate(model, test_loader, verbose=True):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     BCE_loss_fn = nn.BCEWithLogitsLoss(reduction='none') 
-    class_weights = torch.tensor([1.0, 1.0]).to(device)
-    CE_loss_fn = nn.CrossEntropyLoss(weight=class_weights)#, label_smoothing=0.1)
-    
+
     batch_time = AverageMeter()
     if not isinstance(model, nn.DataParallel):
         model = nn.DataParallel(model)

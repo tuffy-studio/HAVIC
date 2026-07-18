@@ -13,17 +13,19 @@ mkdir -p ${save_dir}/models
 lr=1e-5
 head_lr=10.0
 n_epochs=50
-batch_size=32
-num_workers=2
+batch_size=32 # total batch size for all GPUs. Adjust based on your GPU memory and training needs.
+accumulation_steps=1 # batch_size * accumulation_steps = effective batch size. Adjust based on your GPU memory and training needs.
+scheduler_mode=epoch
+num_workers=4
 n_print_steps=100
-verbose=True
+weighted_sampling=True
+verbose=False
 
 dataset_mean=-6.9960
 dataset_std=3.1205
 target_length=1024
 freqm=20
 timem=100
-weighted_sampling=False
 audio_augment=True
 visual_augment=True
 
@@ -37,6 +39,8 @@ python -W ignore ../src/run_finetune.py \
     --head_lr ${head_lr} \
     --n_epochs ${n_epochs} \
     --batch_size ${batch_size} \
+    --accumulation_steps ${accumulation_steps} \
+    --scheduler_mode ${scheduler_mode} \
     --num_workers ${num_workers} \
     --n_print_steps ${n_print_steps} \
     --dataset_mean ${dataset_mean} \

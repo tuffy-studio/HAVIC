@@ -17,6 +17,8 @@ parser.add_argument('--batch_size', default=32, type=int, help='batch size')
 parser.add_argument('--num_workers', default=4, type=int, help='number of workers')
 parser.add_argument('--lr', default=0.00001, type=float, help='learning rate')
 parser.add_argument('--head_lr', type=float, default=10.0, help='Factor to scale learning rate for new added parts')
+parser.add_argument('--accumulation_steps', default=1, type=int, help='gradient accumulation steps')
+parser.add_argument('--scheduler_mode', type=str, default='epoch', choices=['epoch', 'iter'], help='Scheduler decay mode: epoch or iter')
 
 parser.add_argument('--n_epochs', default=50, type=int, help='number of epochs')
 parser.add_argument('--save_dir', default='checkpoints', type=str, help='directory to save checkpoints')
@@ -27,8 +29,9 @@ parser.add_argument('--audio_augment', action='store_true', help='Using audio au
 parser.add_argument('--visual_augment', action='store_true', help='Using visual augmentation')
 parser.add_argument('--weighted_sampling', action='store_true', help='Use weighted sampling')
 
-parser.add_argument("--n_print_steps", default=100, type=int)
 parser.add_argument('--verbose', action='store_true', help='Enable verbose printing during training and validation')
+
+parser.add_argument("--n_print_steps", default=100, type=int)
 
 parser.add_argument('--freqm', help='frequency mask max length', type=int, default=0)
 parser.add_argument('--timem', help='time mask max length', type=int, default=0)
@@ -54,7 +57,7 @@ if args.weighted_sampling:
 else:
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=False, drop_last=False)
 
-val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=False, drop_last=False)
+val_loader = DataLoader(val_dataset, batch_size=args.batch_size*2, shuffle=False, num_workers=args.num_workers, pin_memory=False, drop_last=False)
 
 print(f"Using Train: {len(train_loader)}, Eval: {len(val_loader)}")
 
