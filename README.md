@@ -174,8 +174,7 @@ cd ./scripts/
 bash finetune.sh
 ```
 
-
-**The finetuned model weights is provided [here](https://huggingface.co/JielunPeng/HAVIC/).** 
+**The finetuned model weights are provided [here](https://huggingface.co/JielunPeng/HAVIC/).** 
 
 ## 4 Evaluation and Inference
 Before evaluation or inference, please prepare your fine-tuned model, or download the model provided by us.
