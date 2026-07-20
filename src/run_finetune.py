@@ -19,6 +19,7 @@ parser.add_argument('--lr', default=0.00001, type=float, help='learning rate')
 parser.add_argument('--head_lr', type=float, default=10.0, help='Factor to scale learning rate for new added parts')
 parser.add_argument('--accumulation_steps', default=1, type=int, help='gradient accumulation steps')
 parser.add_argument('--scheduler_mode', type=str, default='epoch', choices=['epoch', 'iter'], help='Scheduler decay mode: epoch or iter')
+parser.add_argument('--scheduler_T0', default=10, type=int, help='Restart cycle length (epochs for epoch mode, batches per 10 epochs for iter mode)')
 
 parser.add_argument('--n_epochs', default=50, type=int, help='number of epochs')
 parser.add_argument('--save_dir', default='checkpoints', type=str, help='directory to save checkpoints')
@@ -28,6 +29,7 @@ parser.add_argument('--save_model', action='store_true', help='Whether to save m
 parser.add_argument('--audio_augment', action='store_true', help='Using audio augmentation')
 parser.add_argument('--visual_augment', action='store_true', help='Using visual augmentation')
 parser.add_argument('--weighted_sampling', action='store_true', help='Use weighted sampling')
+parser.add_argument('--weighted_sampler_mode', type=str, default='binary', choices=['binary', 'four_class'], help='Weighted sampler mode: binary (real/fake) or four_class (4 classes)')
 
 parser.add_argument('--verbose', action='store_true', help='Enable verbose printing during training and validation')
 
@@ -51,8 +53,8 @@ train_dataset = VideoAudioDataset_Finetuning(args.data_train, conf)
 val_dataset = VideoAudioDataset_Finetuning(args.data_val, val_conf)
 
 if args.weighted_sampling:
-    print("Using weighted sampling for training dataset")
-    sampler = train_dataset.get_comb_weighted_sampler()
+    print(f"Using weighted sampling for training dataset, mode: {args.weighted_sampler_mode}")
+    sampler = train_dataset.get_comb_weighted_sampler(use_comb_labels=(args.weighted_sampler_mode == 'four_class'))
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=False, drop_last=False, sampler=sampler)
 else:
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=False, drop_last=False)
@@ -74,7 +76,7 @@ if args.pretrain_path is not None:
 else:
     print("Note you are finetuning a model without any pretraining.")
     
-print("\n Creating experiment directory: %s"%args.save_dir)
+print("\nCreating experiment directory: %s"%args.save_dir)
 if not os.path.exists(args.save_dir):
     os.makedirs(args.save_dir)
 

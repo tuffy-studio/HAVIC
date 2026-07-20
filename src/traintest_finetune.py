@@ -429,7 +429,7 @@ def validate(model, test_loader, verbose=True):
             video_predictions = video_outputs.to('cpu').detach()
 
             if verbose == True:
-                print(f"overall_loss: {av_loss}")
+                print(f"av_loss: {av_loss}")
                 print(f"audio_loss: {audio_loss}, video_loss: {video_loss}")
                 print(f"outputs: {predictions}")
                 print(f"audio_outputs:{audio_predictions}")

@@ -2,9 +2,9 @@
 
 # ==================== Paths ====================
 pretrain_path="../weights/model_to_be_ft.pth"
-tr_data=   
-te_data=    
-save_dir=
+tr_data= # TODO
+te_data= # TODO
+save_dir= # TODO
 save_model=True
 
 mkdir -p $save_dir
@@ -15,11 +15,13 @@ head_lr=10.0
 n_epochs=50
 batch_size=32 # total batch size for all GPUs. Adjust based on your GPU memory and training needs.
 accumulation_steps=1 # batch_size * accumulation_steps = effective batch size. Adjust based on your GPU memory and training needs.
-scheduler_mode=epoch
+scheduler_mode=epoch # choices=['epoch', 'iter'], default='epoch'. If 'epoch', the learning rate scheduler will step after each epoch. If 'iter', it will step after each iteration.
+scheduler_T0=10 # the length of the cycle (in epochs) for the Cosine Annealing Warm Restarts scheduler.
 num_workers=4
 n_print_steps=100
 weighted_sampling=True
-verbose=False
+weighted_sampler_mode=binary # choices=['binary', 'four_class'], only valid when weighted_sampling=True
+verbose=True
 
 dataset_mean=-6.9960
 dataset_std=3.1205
@@ -41,6 +43,7 @@ python -W ignore ../src/run_finetune.py \
     --batch_size ${batch_size} \
     --accumulation_steps ${accumulation_steps} \
     --scheduler_mode ${scheduler_mode} \
+    --scheduler_T0 ${scheduler_T0} \
     --num_workers ${num_workers} \
     --n_print_steps ${n_print_steps} \
     --dataset_mean ${dataset_mean} \
@@ -49,6 +52,7 @@ python -W ignore ../src/run_finetune.py \
     --freqm ${freqm} \
     --timem ${timem} \
     $( [ "$weighted_sampling" = "True" ] && echo "--weighted_sampling" ) \
+    $( [ "$weighted_sampling" = "True" ] && echo "--weighted_sampler_mode" "${weighted_sampler_mode}" ) \
     $( [ "$visual_augment" = "True" ] && echo "--visual_augment" ) \
     $( [ "$audio_augment" = "True" ] && echo "--audio_augment" ) \
     $( [ "$save_model" = "True" ] && echo "--save_model" ) \
