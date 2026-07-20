@@ -25,7 +25,7 @@
 - **[Dec 2025]** Pre-training, finetuning, evaluation and inference code are released.
 - **[Feb 2026]** Our paper is accepted at CVPR 2026 Findings.
 - **[Mar 2026]** Our paper is available on arXiv: [https://arxiv.org/abs/2603.23960](https://arxiv.org/abs/2603.23960).
-- **[Apr 2026]** Model weights pre-trained on the LRS2 dataset are provided [here](https://huggingface.co/JielunPeng/HAVIC/).
+- **[Apr 2026]** Model weights are provided [here](https://huggingface.co/JielunPeng/HAVIC/).
 - **[May 2026]** HiFi-AVDF dataset is provided [here](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
 
 
@@ -175,7 +175,7 @@ bash finetune.sh
 ```
 
 
-**The finetuned model weights will be also provided [here](https://huggingface.co/JielunPeng/HAVIC/).** 
+**The finetuned model weights is provided [here](https://huggingface.co/JielunPeng/HAVIC/).** 
 
 ## 4 Evaluation and Inference
 Before evaluation or inference, please prepare your fine-tuned model, or download the model provided by us.
