@@ -7,6 +7,7 @@
 </div>
 
 <p align="center">
+ <a href="https://github.com/tuffy-studio/HAVIC">
     <img src="https://img.shields.io/badge/Github-HAVIC-black?logo=github">
   </a>
   &nbsp;&nbsp;&nbsp;
