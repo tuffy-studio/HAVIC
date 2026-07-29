@@ -46,7 +46,7 @@ This repository contains the official implementation of [Leave No Stone Unturned
 conda create -n HAVIC python=3.10 ffmpeg
 conda activate HAVIC
 ```
-### Install Python ependencies
+### Install Python dependencies
 
 ```bash
 pip install -r requirements.txt
