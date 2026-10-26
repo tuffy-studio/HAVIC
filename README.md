@@ -6,36 +6,10 @@
 
 </div>
 
-<p align="center">
- <a href="https://github.com/tuffy-studio/HAVIC">
-    <img src="https://img.shields.io/badge/Github-HAVIC-black?logo=github">
-  </a>
-  &nbsp;&nbsp;&nbsp;
-  <a href="https://arxiv.org/abs/2603.23960">
-    <img src="https://img.shields.io/badge/arXiv-2603.23960-b31b1b.svg?logo=arXiv">
-  </a>
-  &nbsp;&nbsp;&nbsp;
-  <a href="https://huggingface.co/JielunPeng/HAVIC/">
-    <img src="https://img.shields.io/badge/🤗%20Hugging%20Face-HAVIC-ffd21e">
-  </a>
-</p>
-
-
-## News
-
-- **[Dec 2025]** Pre-training, finetuning, evaluation and inference code are released.
-- **[Feb 2026]** Our paper is accepted at CVPR 2026 Findings.
-- **[Mar 2026]** Our paper is available on arXiv: [https://arxiv.org/abs/2603.23960](https://arxiv.org/abs/2603.23960).
-- **[Apr 2026]** Model weights are provided [here](https://huggingface.co/JielunPeng/HAVIC/).
-- **[May 2026]** HiFi-AVDF dataset is provided [here](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
-
-
 ## Overview
 This repository contains the official implementation of [Leave No Stone Unturned: Uncovering Holistic Audio-Visual Intrinsic Coherence for Deepfake Detection](https://arxiv.org/abs/2603.23960). The proposed **HiFi-AVDF** dataset is available [here](https://huggingface.co/datasets/JielunPeng/HiFi-AVDF).
 
 ![alt text](assets/poster.png)
-
-
 
 
 ## 1 Requirements
@@ -114,8 +88,6 @@ After the above steps, you can start the pre-training process by running the fol
 cd ./scripts/
 bash pretrain.sh
 ```
-
-**The pre-trained model weights are provided [here](https://huggingface.co/JielunPeng/HAVIC/).**
 
 
 Additionally, since our pre-training method incorporates the **Masked Autoencoders (MAE)** to learn self-supervised representations, we implemented visualizations of the masked regions and the reconstructed outputs in [MAE_visualization.py](./MAE_visualization.py). Before running, make sure to configure the necessary settings in the shell script [mae_visual.sh](./mae_visual.sh), then you can run the shell script [mae_visual.sh](./mae_visual.sh) to perform visualization. 

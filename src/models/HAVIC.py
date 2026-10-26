@@ -580,8 +580,8 @@ class HAVIC_FT(nn.Module):
         # video: (B, 3, 16, 224, 224)
 
         # feature extraction
-        video_3, video_6, video_9, video_12 = self.visual_encoder(video, ids_keep=None, apply_cls_tokens=True, use_mask=False)
-        audio_3, audio_6, audio_9, audio_12 = self.audio_encoder(audio, ids_keep=None, apply_cls_tokens=True, use_mask=False)
+        video_3, video_6, video_9, video_12 = self.visual_encoder(video)
+        audio_3, audio_6, audio_9, audio_12 = self.audio_encoder(audio)
 
         # remove cls tokens
         video_cls_tokens_3, video_3 = self.split_cls_patch_tokens(video_3, n_segments=8) 

@@ -152,7 +152,7 @@ def sample_video_5fps_decord(video_path, frame_output_root='./sliding_window_inf
 
     frames = vr.get_batch(sample_indices).asnumpy()
     for idx, frame in enumerate(frames):
-        frame_path = os.path.join(frame_dir, f"frame_{idx:02d}.png")
+        frame_path = os.path.join(frame_dir, f"frame_{idx:03d}.png")
         if not os.path.exists(frame_path):  # Avoid overwriting if the file already exists
             cv2.imwrite(frame_path, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
         if idx > MAX_TIME*5:
@@ -303,7 +303,7 @@ def process_single_video(index, row, mode):
                     frame = tensor_process(frame)
                     face_frames_list.append(frame)
                     count += 1
-                    if count >= MAX_TIME*5:
+                    if count == MAX_TIME*5:
                         break
                 except Exception as e:
                     print(f"[Warning] {video_path}: Failed to process {frame_file}: {e}")
